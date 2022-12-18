@@ -1,0 +1,25 @@
+OSLABEL
+XIOS for the IBM PC, adapted 12/13/83  
+
+SYSPARAMS
+sysdrive=A: tmpdrive=A: osstart=60
+
+MEMORY
+
+DISKBUFFERS
+A:
+8
+8
+4
+4
+hashing
+*:		;for all remaining drive questions
+A:		;share dir bufs with A:
+A:		;share data bufs with A:
+hashing		;hashing all around
+
+RSPS
+
+GENSYS
+
+
