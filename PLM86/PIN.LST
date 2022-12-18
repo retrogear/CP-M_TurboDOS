@@ -1,0 +1,1019 @@
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE   1
+
+
+DOS 5.0 (038-N) PL/M-86 V3.1  COMPILATION OF MODULE PIN
+OBJECT MODULE PLACED IN PIN.obj
+COMPILER INVOKED BY:  C:\PLM86\PLM86.EXE PIN.P86 OPTIMIZE(3) 
+
+
+
+              /* edit 11-20-2021 by LAG change .variable to offsetof(@variable) */
+              /* look for ## in comments */
+
+              $set (debug=0)
+              $compact
+   1          pin:
+              do;
+
+              /* PIN performs physical input from for each physical console
+                 and places the characters into the input queue associated
+                 with each virtual console.  Switch screen commands are
+                 received from the XIOS and acted on by PIN.
+
+                 Control S/Q, Control O and Control C are intercepted and
+                 processed by PIN.  The input queues are created by VOUT.
+              */
+
+              $include (comlit.lit)
+   2   1  =   declare
+          =           lit                literally          'literally',
+          =           dcl                lit                'declare',
+          =           true               lit                '0ffh',
+          =           false              lit                '0',
+          =           no                 lit                'not',
+          =           boolean            lit                'byte',
+          =           forever            lit                'while true',
+          =           cr                 lit                '13',
+          =           lf                 lit                '10',
+          =           tab                lit                '9';
+
+   3   1      dcl rsp$link word external;       /* segment of SYSDAT */
+
+              $include (mfunc.lit)
+          =   /* Concurrent CP/M function numbers */
+
+   4   1  =   dcl           m$prtbuf              lit       '9',
+          =                 m$select              lit       '14',
+          =                 m$openf               lit       '15',
+          =                 m$closef              lit       '16',
+          =                 m$deletef             lit       '19',
+          =                 m$readf               lit       '20',
+          =                 m$writef              lit       '21',
+          =                 m$makef               lit       '22',
+          =                 m$getlogin            lit       '24',
+          =                 m$curdsk              lit       '25',
+          =                 m$setdma              lit       '26',
+          =                 m$setatt              lit       '30',
+          =                 m$setusr              lit       '32',
+          =                 m$readrf              lit       '33',
+          =                 m$writerf             lit       '34',
+          =                 m$resetdrv            lit       '37',
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE   2
+
+
+          =                 m$errmode             lit       '45',
+          =                 m$dirbios             lit       '50',
+          =                 m$makeq               lit       '134',
+          =                 m$openq               lit       '135',
+          =                 m$deleteq             lit       '136',
+          =                 m$readq               lit       '137',
+          =                 m$creadq              lit       '138',
+          =                 m$writeq              lit       '139',
+          =                 m$cwriteq             lit       '140',
+          =                 m$delay               lit       '141',
+          =                 m$dispatch            lit       '142',
+          =                 m$setprior            lit       '145',
+          =                 m$detach              lit       '147',
+          =                 m$setcns              lit       '148',
+          =                 m$parse               lit       '152',
+          =                 m$getcns              lit       '153',
+          =                 m$sysdat              lit       '154',
+          =                 m$getpd               lit       '156',
+          =                 m$abort               lit       '157';
+
+          =   /* Internal calls */
+
+   5   1  =   dcl           mi$sleep              lit       '0212H',
+          =                 mi$wakeup             lit       '0213H';
+              $include (mxfunc.lit)
+          =   /* MP/M-86 XIOS function numbers */
+
+   6   1  =   dcl     mx$conin            lit '1',
+          =           mx$conout           lit '2',
+          =           mx$lstout           lit '4',
+          =           mx$switch           lit '7',
+          =           mx$upstatus         lit '8',
+          =           mx$consmode         lit '30';
+              $include (sdpin.lit)
+          =   /* System Data Page */
+
+   7   1  =     dcl sysdat$pointer pointer;
+   8   1  =     dcl sysdat$ptr structure(
+          =       offset word,
+          =       segment word) at (@sysdat$pointer);
+   9   1  =     declare sd based sysdat$pointer structure (
+          =         supmod (4) word,
+          =     /*  rtmmod (4) word,
+          =         memmod (4) word,
+          =         ciomod (4) word,
+          =         bdosmod (4) word,
+          =         xiosmod (4) word,
+          =         netmod (4) word,
+          =         reservd (4) word */
+          =         space1(28) word,
+          =         mpmseg word,
+          =         rspseg word,
+          =         endseg word,
+          =         module$map byte,
+          =         ncns byte,
+          =         nlst byte,
+          =         nccb byte,
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE   3
+
+
+          =         nflags byte,
+          =         srchdisk byte,
+          =         mmp word,
+          =         nslaves byte,
+          =         dayfile byte,
+          =         tempdisk byte,
+          =         tickspersec byte, 
+          =         lul word, 
+          =         ccb word,
+          =         flags word,
+          =         mdul word,
+          =         mfl word,
+          =         pul word,
+          =         qul word,
+          =         qmau (4) word,
+          =         rlr word,
+          =         dlr word,
+          =         drl word,
+          =         plr word,
+          =         slr word,
+          =         thrdrt word,
+          =         qlr word,
+          =         mal word,      
+          =         version word,
+          =         vernum word,
+          =         mpmvernum word,
+          =         tod_day word,
+          =         tod (3) byte,
+          =         ncondev byte,
+          =         nlstdev byte,
+          =         nciodev byte,
+          =         lcb word,
+          =         openvec word,
+          =         lockmax byte,
+          =         openmax byte,
+          =         space2 (2) word,
+          =         cmod byte ,
+          =         space3 (11) word,
+          =         space4 byte,
+          =         splr word );  
+          =         
+          =         
+  10   1  =   declare sd$byte based sysdat$pointer (1) byte;
+  11   1  =   dcl   ncondev   lit '83h',
+          =         nlstdev   lit '84h',
+          =         nciodev   lit '85h',
+          =         readylst  lit '68h',
+          =         dsptchlst lit '6ch',
+          =         susplst   lit '0a8h';
+              $include (proces.lit)
+          =   /*
+          =       Proces Literals MP/M-8086 II
+          =   */
+
+  12   1  =   declare pnamsiz literally '8';
+
+  13   1  =   declare pd$hdr literally 'structure
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE   4
+
+
+          =     (link word,thread word,stat byte,prior byte,flag word,
+          =     name (8) byte,uda word,dsk byte,user byte,ldsk byte,luser byte,
+          =     mem word';
+
+          =   /* NDA field added for network 12/7/83 RBB */
+
+  14   1  =   declare pd$structure literally 'pd$hdr,
+          =     dvract word,wait word,nda$para word,parent word,
+          =     cns byte,abort byte,conmode word,lst byte,sf3 byte,ps_flag word,
+          =     reservd (4) byte,pret word,scratch word)';
+
+  15   1  =     declare psrun                 lit '00',
+          =             pspoll                lit '01',
+          =             psdelay               lit '02',
+          =             psswap                lit '03',
+          =             psterm                lit '04',
+          =             pssleep               lit '05',
+          =             psdq                  lit '06',
+          =             psnq                  lit '07',
+          =             psflagwait            lit '08',
+          =             psciowait             lit '09';
+
+  16   1  =     declare pf$sys                lit '00001h',
+          =             pf$keep               lit '00002h',
+          =             pf$kernal             lit '00004h',
+          =             pf$pure               lit '00008h',
+          =             pf$table              lit '00010h',
+          =             pf$resource           lit '00020h',
+          =             pf$raw                lit '00040h',
+          =             pf$ctlc               lit '00080h',
+          =             pf$active             lit '00100h',
+          =             pf$tempkeep           lit '00200h',
+          =             pf$ctld               lit '00400h',
+          =             pf$childabort         lit '00800h',
+          =             pf$noctls             lit '01000h';
+
+  17   1  =     declare pcm$11                lit '00001h',
+          =             pcm$ctls              lit '00002h',
+          =             pcm$rout              lit '00004h',
+          =             pcm$ctlc              lit '00008h',
+          =             pcm$ctlo              lit '00080h',
+          =             pcm$rsx               lit '00300h';
+          =     
+  18   1  =     declare psf_suspend           lit '00001h';
+  19   1      declare pd$pointer pointer;
+  20   1      declare pd$ptr structure (offset word, segment word) at (@pd$pointer);
+  21   1      declare pd based pd$pointer pd$structure;
+
+              $include (uda.lit)
+
+          =   /* MP/M-86 II  User Data Area format - August 8, 1981 */
+
+  22   1  =   declare uda$pointer pointer;
+  23   1  =   declare uda$ptr structure (offset word, segment word) at (@uda$pointer);
+  24   1  =   declare uda based uda$pointer structure (
+          =       dparam          word,
+          =       dma$ofst        word,
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE   5
+
+
+          =       dma$seg         word,
+          =       func            byte,
+          =       searchl         byte,
+          =       searcha         word,
+          =       searchabase     word,
+          =       dcnt            word,
+          =       dblk            word,
+          =       error$mode      byte,
+          =       mult$cnt        byte,
+          =       df$password     (8) byte,
+          =       pd$cnt          byte,
+          =           uspace1                 byte,
+          =           uspace2                 (8) word,
+          =           uspace3                 (8) word,
+          =           uspace4                 (8) word,
+          =           uspace5                 (8) word,
+          =           uspace6                 (2) word,
+          =           dinsys                   byte);
+
+  25   1      declare ncopies byte external,   /* copy number of this process, corresponds */
+                      cnsnum byte at(@ncopies);/* with physical console number */
+  26   1      declare himark byte;             /* total physical consoles for this PIN */
+  27   1      declare lomark byte;             /* first virtual console for this PIN   */
+  28   1      declare ctrlC    lit '3';        /* some ASCII codes */
+  29   1      declare ctrlD    lit '4';
+  30   1      declare bell     lit '7';
+  31   1      declare ctrlO    lit '15';
+  32   1      declare ctrlP    lit '16';
+  33   1      declare ctrlQ    lit '17';
+  34   1      declare ctrlS    lit '19';
+  35   1      declare esc      lit '27';
+
+
+              /*      -      global variables      -      */
+
+              $include (netpin.lit)
+
+          =   /* Network-related structures and pointers for PIN, 12/7/83 RBB */
+
+  36   1  =   dcl   net$bit lit '040h';
+
+  37   1  =   dcl   net$flag boolean;
+  38   1  =   dcl   nda$pointer pointer;
+  39   1  =   dcl   nda$ptr structure (offset word, segment word) at (@nda$pointer);
+
+          =   /* Start of NDA structure */
+
+  40   1  =   dcl   nda based nda$pointer structure (
+          =                                  rcb$pointer pointer,
+          =                                  rct$pointer pointer);
+
+          =   /* Requester configuration table */
+
+  41   1  =   dcl   rct$ptr pointer;
+  42   1  =   dcl   rct based rct$ptr structure (
+          =                                     rc$cnt word,
+          =                                     rc$disks(16) word,
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE   6
+
+
+          =                                     rc$cons(16) word,
+          =                                     rc$list(16) word);
+              $include (vccb.lit)
+
+
+          =   /*              +---------+---------+---------+---------+
+          =          00       |      attach       |       queue       |
+          =                   +---------+---------+---------+---------+
+          =          04       |  flag   | startcol| column  |  nchar  |
+          =                   +---------+---------+---------+---------+
+          =          08       |  mimic  | msource |   pc    |    vc   |
+          =                   +---------+---------+---------+---------+
+          =          0C       |  btmp   | resrvd  |       state       |
+          =                   +---------+---------+---------+---------+
+          =          10       |     maxbufsiz     |       vinq        |
+          =                   +---------+---------+---------+---------+
+          =          14       |       voutq       |       vcmxq       |     
+          =                   +---------+---------+---------+---------+
+          =          18       | qpbflgs | qpbfill |      qpbqaddr     |
+          =                   +---------+---------+---------+---------+
+          =          1C       |      qpbnmsgs     |     qpbbuffptr    |
+          =                   +---------+---------+---------+---------+
+          =          20       |       qbuff       |      cosleep      |
+          =                   +---------+---------+---------+---------+
+          =          24       |      usleep       |       vsleep      |
+          =                   +---------+---------+---------+---------+
+          =          28       |            ... reserved ...           |
+          =                   +---------+---------+---------+---------+
+
+
+
+
+          =   */   
+
+  43   1  =   dcl ccb$structure lit 'structure (attach address, queue address,
+          =    flag byte, startcol byte, column byte, nchar byte, mimic byte, msource byte,
+          =    ccb$tail1';
+  44   1  =   dcl ccb$tail1 lit
+          =    'pc byte, vc byte, btmp byte, reservd byte, state word, maxbufsiz word,
+          =     ccb$tail2';
+  45   1  =   dcl ccb$tail2 lit
+          =    'vinq address, voutq address, vcmxq address,
+          =     qpbflags byte, qpbresrvd byte, qpbqaddr address,
+          =     qpbnmsgs address, qpbbuffptr address, qbuff address, cosleep word,
+          =     usleep word, vsleep word, link word, r2 word)';
+
+  46   1  =     declare                                 /* flag values                    */
+          =       cf$listcp         lit        '001h',  /* control P toggle               */
+          =       cf$compc          lit        '002h',  /* suppress output                */
+          =       cf$switchs        lit        '004h',  /* XIOS supports switch screening */
+          =       cf$conout         lit        '008h',  /* XIOS console output ownership  */
+          =       cf$vout           lit        '010h',  /* process writing to VOUTQ       */
+          =       cf$bufp           lit        '020h';  /* toggle to control printer echo */
+          =                                             /* on control P when background   */
+          =                                             /* and buffered                   */
+          =   /* values of state byte */
+          =                                               /* conout goes to XIOS  */
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE   7
+
+
+
+          =   /* state word flags */
+
+  47   1  =   dcl
+          =   csm$buffered          lit       '0001h',
+          =   csm$background        lit       '0002h',
+          =   csm$purging           lit       '0004h',
+          =   csm$noswitch          lit       '0008h',
+          =   csm$suspend           lit       '0010h',
+          =   csm$abort             lit       '0020h',
+          =   csm$filefull          lit       '0040h',
+          =   csm$ctrlS             lit       '0080h',
+          =   csm$ctrlO             lit       '0100h',
+          =   csm$ctrlP             lit       '0200h';
+
+  48   1  =   dcl x$init$offset lit '0Ch',
+          =       x$init$pointer pointer,
+          =       x$init$ptr structure (offset word, segment word) at (@x$init$pointer),
+          =       x$init based x$init$pointer structure
+          =         (tick byte, ticks$sec byte, door byte, resrvd1 (2) byte,
+          =         nvcns byte, nccb byte, nlst byte, ccb word, lcb word);
+
+
+  49   1  =   dcl lcb$structure lit 'structure (attach address, queue address,
+          =    flag byte, startcol byte, column byte, nchar byte,
+          =    mimic byte, msource byte)';
+  50   1      declare ccb$pointer pointer;
+  51   1      declare ccb$ptr structure(offset word,segment word) at (@ccb$pointer);
+  52   1      declare ccb based ccb$pointer ccb$structure;
+
+  53   1      declare old$ccb$pointer pointer;
+  54   1      declare old$ccb based old$ccb$pointer ccb$structure;
+
+  55   1      declare lcb$pointer pointer;
+  56   1      declare lcb$ptr structure(offset word,segment word) at (@lcb$pointer);
+  57   1      declare lcb based lcb$pointer lcb$structure;
+
+  58   1      declare screen byte;         /* current foreground screen number      */
+  59   1      declare cns    word;         /* Hi byte = physical, Lo byte = virtual */
+  60   1      declare cnmode word;         /* Result of GetConMode XIOS call - PCMODE*/
+
+              $include (qd.lit)
+          =   /* Queue Descriptor */
+
+  61   1  =   dcl qnamsiz lit '8';
+
+  62   1  =   dcl qd$structure lit 'structure(
+          =     link  word,
+          =     net byte,
+          =     org byte,
+          =     flags word,
+          =     name(qnamsiz) byte,
+          =     msglen word,
+          =     nmsgs word,
+          =     dq word,
+          =     nq word,
+          =     msgcnt word,
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE   8
+
+
+          =     msgout word,
+          =     buffer word)';
+
+          =   /* queue flag values */
+
+  63   1  =   dcl qf$mx       lit '001h'; /* Mutual Exclusion */
+  64   1  =   dcl qf$keep     lit '002h'; /* NO DELETE        */
+  65   1  =   dcl qf$hide     lit '004h'; /* Not User writable    */
+  66   1  =   dcl qf$rsp      lit '008h'; /* rsp queue        */
+  67   1  =   dcl qf$table    lit '010h'; /* from qd table    */
+  68   1  =   dcl qf$rpl      lit '020h'; /* rpl queue        */
+  69   1  =   dcl qf$dev      lit '040h'; /* device queue     */
+
+          =   /* Queue Parameter Block */
+
+  70   1  =   dcl qpb$structure lit 'structure(
+          =     flgs    byte,
+          =     net     byte,
+          =     qaddr   word,
+          =     nmsgs   word,
+          =     buffptr word,
+          =     name (qnamsiz) byte )';
+  71   1      declare qpb qpb$structure;
+
+  72   1      dcl null word data (0ffffh);          /* sent to VOUTQ to wake up VOUT */
+              /* Note: this forces a 2 byte constant section and thus hex generation */
+
+  73   1      dcl apb structure (                   /* abort parameter block */
+                pd word, term word, cns byte, rsrvd byte) initial (0,0,0,0);
+
+  74   1      dcl cword word,                       /* format of console input from XIOS */
+                  chars (2) byte at (@cword),
+                  char byte at (@chars(0)),
+                  char$type byte at(@chars(1)),
+                  ct$switch lit '0ffh',
+                  ct$data   lit  '0';
+
+  75   1      dcl temp1$pointer pointer;
+  76   1      dcl temp1$ptr structure (offset word, segment word) at (@temp1$pointer);
+  77   1      dcl temp1 based temp1$pointer pd$structure;
+
+  78   1      dcl temp2$pointer pointer;
+  79   1      dcl temp2$ptr structure (offset word, segment word) at (@temp2$pointer);
+  80   1      dcl temp2 based temp2$pointer pd$structure;
+
+  81   1      mon1: procedure(func,a) external;
+  82   2        dcl func byte, a address;
+  83   2      end mon1;
+
+  84   1      mon2: procedure(func,a) byte external;
+  85   2        dcl func byte, a address;
+  86   2      end mon2;
+
+  87   1      mon3: procedure(func,a) address external;
+  88   2        dcl func byte, a address;
+  89   2      end mon3;
+
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE   9
+
+
+  90   1      mon4: procedure(func,a) pointer external;
+  91   2        dcl func byte, a address;
+  92   2      end mon4;
+
+  93   1      intsys: procedure (cx, dx, bx) external;   /* internal O.S. functions */
+  94   2        dcl (cx, dx, bx) word;
+  95   2      end intsys;
+
+              /* the following 4 procedures call the XIOS directly, the PXIOS.A86   */
+              /* sets the registers to make this legal.  DS = system data segment,  */
+              /* ES = UDA.  The parameters are passed AX=FUNC, CX=P1, DX=P2         */
+
+  96   1      pxios1: procedure(func,p1,p2) external;
+  97   2      dcl (func,p1,p2) address;
+  98   2      end pxios1;
+
+              /*pxios2: procedure(func,p1,p2) byte external;
+              dcl (func,p1,p2) address;
+              end pxios2;*/
+
+  99   1      pxios3: procedure(func,p1,p2) word external;
+ 100   2      dcl (func,p1,p2) address;
+ 101   2      end pxios3;
+
+              /*pxios4: procedure(func,p1,p2) pointer external;
+              dcl (func,p1,p2) address;
+              end pxios4;*/
+
+ 102   1      conin: procedure;
+ 103   2        cword = pxios3(mx$conin, 0, ccb.pc);/* get console input from XIOS     */
+ 104   2      end;                                  /* AX=func, CX=0, DX(device#)=0    */
+
+ 105   1      get$cons$mode: procedure;
+ 106   2        cnmode = pxios3(mx$consmode,0100h,ccb.vc); /* get console mode from XIOS*/
+ 107   2      end;
+
+ 108   1      print$msg: procedure(len, endchar, sptr);    /* print string to delimiter */
+ 109   2        dcl (len, i, endchar) byte, sptr pointer,  /* or len number of chars    */
+                  string based sptr (1) byte;
+ 110   2        i = 0;
+ 111   2        do while string(i) <> endchar and i < len;
+ 112   3          call pxios1(mx$conout, string(i), ccb.vc);
+ 113   3          i = i + 1;
+ 114   3        end;
+ 115   2      end print$msg;
+
+              $if debug=1
+              error: procedure (msg$ptr);
+                dcl msg$ptr pointer;
+                call print$msg(0ffh, 0, @(cr, lf, '**** PIN ERROR ****', cr, lf, 0));
+                call print$msg(0ffh, '$', msg$ptr);
+                halt;
+              end error;
+
+              $endif
+
+ 116   1      read$change$mxq: procedure (qaddr);
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE  10
+
+
+ 117   2      dcl qaddr address;
+ 118   2        qpb.qaddr = qaddr;
+ 119   2        call mon1 (m$readq, .qpb);
+ 120   2      end read$change$mxq;
+
+ 121   1      write$change$mxq: procedure (qaddr);
+ 122   2        dcl qaddr address;
+ 123   2        qpb.qaddr = qaddr;
+ 124   2        call mon1 (m$writeq, .qpb);
+ 125   2      end write$change$mxq;
+
+ 126   1      sleep: procedure (list$root);
+ 127   2        dcl list$root word;
+ 128   2        call intsys(mi$sleep, list$root,  ps$ciowait);
+ 129   2      end sleep;
+
+ 130   1      wake$up: procedure (list$root);
+ 131   2        dcl list$root word;
+ 132   2        call intsys(mi$wakeup, list$root, 0);
+ 133   2      end wake$up;
+
+              /* The conout flag is set and "owned" before any process calls the XIOS
+                 console output routine for a particular screen.  PIN sets this flag
+                 to insure there is no process in the XIOS console output code.  The
+                 ccb.cosleep is a temporary location for processes waiting to own the
+                 the XIOS conout bit.                                                   */
+
+ 134   1      set$conout$flag: procedure(ccb$ptr);
+ 135   2        dcl ccb$ptr pointer;
+ 136   2        dcl ccb based ccb$ptr ccb$structure;
+ 137   2        disable;
+ 138   2        do while (ccb.flag and cf$conout) <> 0;    /* Another process is in XIOS */
+ 139   3          call sleep(offsetof(@ccb.cosleep));               /* ## PIN gets awakened 1st:     */ 
+ 140   3        end;                                       /* better priority            */
+ 141   2        ccb.flag = ccb.flag or cf$conout;
+ 142   2        enable;
+ 143   2      end set$conout$flag;
+
+ 144   1      reset$conout$flag: procedure (ccb$ptr);
+ 145   2        dcl ccb$ptr pointer;
+ 146   2        dcl ccb based ccb$ptr ccb$structure;
+ 147   2        ccb.flag = ccb.flag and not cf$conout;     /* wake sleeping process     */
+ 148   2        call wakeup(offsetof(@ccb.cosleep));  /* ## */
+ 149   2      end reset$conout$flag;
+
+ 150   1      wake$vout: procedure(ccb$ptr);
+ 151   2        dcl ccb$ptr pointer;
+ 152   2        dcl ccb based ccb$ptr ccb$structure;
+ 153   2        if (ccb.state and csm$buffered) = 0 then
+ 154   2          return;                        /* dynamic mode */
+ 155   2        qpb.qaddr = ccb.voutq;
+ 156   2        qpb.buffptr = .null;             /* VOUT message is 2 byte format     */
+ 157   2        call mon1(m$cwriteq, .qpb);      /* null message if first byte = 0ffh */
+ 158   2        qpb.qaddr = ccb.voutq;
+ 159   2        qpb.buffptr = .null;             /* VOUT needs two wake-ups in some   */
+ 160   2        call mon1(m$cwriteq, .qpb);      /* situations                        */
+ 161   2        call wake$up(offsetof(@ccb.vsleep));  /* ## */
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE  11
+
+
+ 162   2      end wake$vout;
+
+ 163   1      write$vinq: procedure(c);
+ 164   2        dcl c word;
+ 165   2        qpb.qaddr = ccb.vinq;
+ 166   2        qpb.buffptr = offsetof(@c);       /* ## */
+ 167   2        if mon3(m$cwriteq, .qpb) = 0ffffh then   /* ring console bell if type */
+ 168   2        do;
+ 169   3          call set$conout$flag(@ccb);  /* XIOS is not reentrant on same console */
+ 170   3          call pxios1(mx$conout, bell, ccb.vc);  /* ahead buffer if full      */
+ 171   3          call reset$conout$flag(@ccb);
+ 172   3        end;
+ 173   2      end write$vinq;
+
+ 174   1      set$ccb: procedure (vc);                       /* base VCCB structure */
+ 175   2        dcl vc byte;
+ 176   2        old$ccb$pointer = ccb$pointer;
+ 177   2        ccb$ptr.offset = sd.ccb + size(ccb) * vc;
+ 178   2      end set$ccb;
+
+
+              /* the functions below act on special keys received from the keyboard */
+
+ 179   1      dcl controlS$has$been$pressed boolean initial (false);
+
+ 180   1      switch: procedure;                         /* switch virtual consoles */
+ 181   2        if char >= himark then
+ 182   2          return;                                  /* check for legal range */
+ 183   2        if (ccb.state and csm$noswitch) <> 0 then        /* no switch state */
+ 184   2          return;        
+ 185   2        call get$cons$mode;                 /*returns graphics or alpha mode*/
+ 186   2        if (cnmode and 0ffh) > 15 then      /*Graphics-active processes may */
+ 187   2           return;                          /*not switch into background    */
+ 188   2        char = char + lomark;              /* normalize to right ccb number */
+ 189   2        if char = ccb.vc then   /* request is for currently selected screen */
+ 190   2          return;
+ 191   2        call set$ccb(screen := char);   /* switch old$ccb and ccb structures */
+
+                /*        -  Switch Out Action  -         */
+
+ 192   2        call read$change$mxq(oldccb.vcmxq);          /* read the MX 1st THEN */
+ 193   2        call set$conout$flag(@oldccb);               /* the conout flag      */
+
+ 194   2        pd$ptr.offset = oldccb.attach;
+ 195   2        uda$ptr.segment = pd.uda;
+ 196   2        uda$ptr.offset = 0;
+ 197   2        if (pd.ps_flag and psf_suspend) then       /* tell system to suspend */
+ 198   2           oldccb.state = oldccb.state or csm$suspend;        /* the process */ 
+
+ 199   2        pd$pointer = mon4(m$getpd,0);             /* restore PD offset       */
+ 200   2        oldccb.state = oldccb.state or csm$background;
+ 201   2        if (oldccb.state and csm$purging) <> 0 then
+ 202   2          oldccb.state = oldccb.state and not double(csm$purging);
+                /* turn off purge */
+
+                /* Ensure the two affected screens are not currently being updated  */
+                /* by the XIOS console output routines.                             */
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE  12
+
+
+
+ 203   2        call read$change$mxq(ccb.vcmxq);
+ 204   2        call set$conout$flag$(@ccb);
+
+ 205   2        cns = ccb.pc; 
+ 206   2        cns = shl(cns,8) + ccb.vc;          /* Hi byte = phys.,Lo byte = virtual*/
+ 207   2        call pxios1(mx$switch, 0, cns);           /* for XIOS device parameter  */ 
+
+ 208   2        call reset$conout$flag(oldccb$pointer);
+ 209   2        call write$change$mxq(oldccb.vcmxq);  /* allow VOUT to change state     */
+ 210   2        if (oldccb.state and csm$buffered) <> 0 then     /* background buffered */
+ 211   2          call wake$vout(@oldccb);             /* send chars to VOUT if buffer, */
+                                                  /* else user process hangs on USLEEP  */
+
+                /*        -  Switch In Action  -                 */
+
+ 212   2        if (ccb.state and csm$suspend) <> 0 then       /* process is suspended  */
+ 213   2           do;                                         /* put it back in action */
+ 214   3           disable;
+ 215   3           ccb.state = ccb.state and not double(csm$suspend);
+ 216   3           pd$ptr.offset = ccb.attach;
+ 217   3           temp1$ptr.offset = susplst;                 /* get Suspend List Root */
+ 218   3           do while (temp1.link <> pd$ptr.offset) and  /* search SPL for process*/
+                            (temp1.link <> 0);
+ 219   4                    temp1$ptr.offset = temp1.link;
+ 220   4                    end;
+ 221   3           if (temp1.link = pd$ptr.offset) then        /* it's on suspend list */
+ 222   3              do;
+ 223   4              temp1.link = pd.link;      /* temp1 = PD ; take it off the  list */
+                                                        /* Get the Dispatch Ready List */
+ 224   4              temp2$ptr.offset = dsptchlst;
+ 225   4              pd.link = temp2.link;
+ 226   4              pd.stat = psrun;
+ 227   4              temp2.link = pd$ptr.offset;           /* put on top of list      */
+ 228   4             end;
+ 229   3           enable;
+ 230   3           end;
+ 231   2        ccb.state = ccb.state and not double(csm$background);
+ 232   2        if (ccb.state and csm$buffered) <> 0 then
+ 233   2        do;                                   /* buffer or buffer error states */
+                                                                      /* turn on purge */
+ 234   3          ccb.state = (ccb.state or csm$purging) and not double(csm$filefull);
+                                                     /* turn off error could print msg */
+ 235   3          call wake$vout(@ccb);                             /* here eventually */
+ 236   3        end;
+ 237   2        call reset$conout$flag(ccb$pointer);
+ 238   2        call write$change$mxq(ccb.vcmxq);
+ 239   2        if (ccb.state and csm$ctrlS) <> 0 then    /* we "own" the XIOS console */
+ 240   2          controlS$has$been$pressed = true;                    /* output flag  */
+ 241   2        else
+                  controlS$has$been$pressed = false;
+ 242   2        call pxios1(mx$upstatus, 0, ccb.pc);
+ 243   2      end switch;
+
+ 244   1      dcl drive$letters (17) byte initial ('ABCDEFGHIJKLMNOP ');
+
+ 245   1      controlC: procedure;
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE  13
+
+
+ 246   2        dcl (junk,cur$drive,logged$in$drives) word;
+ 247   2        dcl letter$index byte;
+ 248   2        if (pd.conmode and pcm$ctlc) <> 0 then
+ 249   2        do;
+ 250   3          call write$vinq(cword);
+ 251   3          return;
+ 252   3        end; 
+ 253   2        call read$change$mxq(ccb.vcmxq); /* keep CCB state from changing        */
+                                                 /* while we test and change it         */
+ 254   2        ccb.state = ccb.state and not double(csm$ctrlS or csm$ctrlO);
+ 255   2        controlS$has$been$pressed = false;
+                                                 /* control C turns off control S and   */
+                                                 /* control O, doesn't change control P */
+ 256   2        if (ccb.state and csm$purging) <> 0 then /* stop purge                  */
+ 257   2          ccb.state = ccb.state and not double (csm$purging) or csm$abort;
+ 258   2        qpb.qaddr = ccb.vinq;            /* drain input queue, we have better   */
+ 259   2        qpb.buffptr = .junk;             /* priority than user process or TMP   */
+ 260   2        do while mon2(m$creadq, .qpb) <> 0ffh;  /* drain type-ahead q */
+ 261   3        end;
+ 262   2        ccb.nchar = 0;                   /* zero console status look ahead      */
+ 263   2        call write$change$mxq(ccb.vcmxq);
+ 264   2        call wake$vout(@ccb);          /* let VOUT clean up if buffering        */
+ 265   2        call wake$up(offsetof(@ccb.usleep));     /* ## user process could have gone to sleep */
+                                               /* during this rigamarole                */
+
+ 266   2        apb.pd = ccb.attach;           /* CIO keeps aborts from happening       */
+ 267   2        call mon1(m$abort, .apb);      /* while in the XIOS, do abort after     */
+                                               /* VOUT has cleaned up, otherwise the TMP*/
+                                               /* with a better priority can print its  */
+                                               /* prompt, and then VOUT prints one last */
+                                               /* purge character                       */
+
+                             /* reset drives and print which fail */
+ 268   2        logged$in$drives = mon3(m$getlogin,0);
+ 269   2        cur$drive = 1;                 /* drive to reset                        */
+ 270   2        letter$index = 0;
+ 271   2        do junk = 0 to 15;
+ 272   3          if (logged$in$drives and cur$drive) <> 0 then
+ 273   3            if mon2(m$resetdrv, cur$drive) <> 0 then
+ 274   3            do;
+ 275   4              drive$letters(letter$index) = 'A' + junk;
+ 276   4              letter$index = letter$index + 1;
+ 277   4            end;
+ 278   3          cur$drive = shl(cur$drive,1);
+ 279   3        end;
+ 280   2        if letter$index > 0 then
+ 281   2        do;
+ 282   3          call set$conout$flag(@ccb);
+ 283   3          call print$msg(0ffh,0,@(cr,lf,'Open file on drive(s) ',0));
+ 284   3          call print$msg(1,0,@drive$letters(0));
+ 285   3          do junk = 1 to letter$index - 1;
+ 286   4            call print$msg(1,0,@(','));
+ 287   4            call print$msg(1,0,@drive$letters(junk));
+ 288   4          end;
+ 289   3          call print$msg(2,0,@(cr,lf));
+ 290   3          ccb.startcol, ccb.column = 0;        /* for function 10 - line redraw */
+ 291   3          call reset$conout$flag(@ccb);
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE  14
+
+
+ 292   3        end;
+ 293   2      end controlC;
+
+ 294   1      controlO: procedure;             /* toggle console output byte bucket     */
+ 295   2        if (pd.conmode and pcm$ctlo) <> 0 then  /* ignore if control P or if func */
+ 296   2        do;
+ 297   3          call write$vinq(cword);
+ 298   3          return;
+ 299   3        end;
+ 300   2        call read$change$mxq(ccb.vcmxq);
+ 301   2        ccb.state = ccb.state xor csm$ctrlO;
+ 302   2        call write$change$mxq(ccb.vcmxq);
+ 303   2        call wake$vout(@ccb);
+ 304   2        call pxios1(mx$upstatus, 0, ccb.pc);
+ 305   2      end controlO;
+
+ 306   1      turn$off$ctrlO: procedure;
+ 307   2        call read$change$mxq(ccb.vcmxq);
+ 308   2        ccb.state = ccb.state and not double(csm$ctrlO);
+ 309   2        call write$change$mxq(ccb.vcmxq);
+ 310   2        call wake$vout(@ccb);
+ 311   2        call pxios1(mx$upstatus, 0, ccb.pc);
+ 312   2      end turn$off$ctrlO;
+
+ 313   1      controlS: procedure;
+ 314   2        if (pd.flag and pf$noctls) <> 0 then  /* special condition for CLI day */
+ 315   2          return;                             /* file logging */
+ 316   2        if (pd.conmode and pcm$ctlS) <> 0 then
+ 317   2        do;
+ 318   3          call write$vinq(cword);
+ 319   3          return;
+ 320   3        end; 
+ 321   2        call read$change$mxq(ccb.vcmxq);
+ 322   2        ccb.state = ccb.state and not double(csm$ctrlO) or csm$ctrlS;
+                                                      /* control S turns off control O */
+ 323   2        call pxios1(mx$upstatus, 0, ccb.pc);
+ 324   2        call write$change$mxq(ccb.vcmxq);
+ 325   2        controlS$has$been$pressed = true;
+ 326   2      end controlS;
+
+ 327   1      controlQ: procedure;
+ 328   2        call read$change$mxq(ccb.vcmxq);
+ 329   2        ccb.state = ccb.state and not double(csm$ctrlS);
+ 330   2        call write$change$mxq(ccb.vcmxq);
+ 331   2        call wake$vout(@ccb);
+ 332   2        call wakeup(offsetof(@ccb.usleep));       /* ## */
+ 333   2        call pxios1(mx$upstatus, 0, ccb.pc);
+ 334   2        controlS$has$been$pressed = false;
+ 335   2      end controlQ;
+
+ 336   1      controlP: procedure;
+ 337   2        if (pd.conmode and pcm$rout) <> 0 then /* control P is ignored if console */
+ 338   2        do;
+ 339   3          call write$vinq(cword);
+ 340   3          return;                              /* mode is raw output */
+ 341   3        end; 
+ 342   2        call turn$off$ctrlO;
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE  15
+
+
+ 343   2        call read$change$mxq(ccb.vcmxq);
+ 344   2        if (ccb.state and csm$ctrlP) = 0 then  /* turn control P on */   
+ 345   2        do;
+ 346   3          lcb$ptr.offset = sd.lcb + pd.lst * size(lcb);
+ 347   3          disable;
+                                                             /* Network check,12/7/83,RBB */
+ 348   3          net$flag = true;
+ 349   3          if (sd.module$map and net$bit) <> 0 then   /* Check for net loaded      */
+ 350   3             if pd.nda$para <> 0 then                /* Check for process attached*/
+ 351   3             do;
+ 352   4               nda$ptr.segment = pd.nda$para;
+ 353   4               nda$ptr.offset = 0;
+ 354   4               rct$ptr = nda.rct$pointer;            /* Check if printer is mapped*/
+ 355   4               if (rct.rc$list(pd.lst) and 0080h) <> 0 then
+ 356   4                   net$flag = false;
+ 357   4             end;
+ 358   3          if (lcb.attach = 0) and net$flag then
+ 359   3          do;
+ 360   4             lcb.attach = 0ffffh;
+ 361   4             lcb.msource = screen;
+ 362   4             ccb.mimic = pd.lst;
+ 363   4             ccb.state = ccb.state or csm$ctrlP;
+ 364   4             enable;
+ 365   4          end;
+                  /*if lcb.attach = 0 then 
+                  do;  
+                    lcb.attach = 0ffffh;
+                    lcb.msource = screen;
+                    ccb.mimic = pd.lst;
+                    ccb.state = ccb.state or csm$ctrlP;
+                    enable;
+                  end;                                  */
+ 366   3          else
+                  do;
+ 367   4            enable;
+ 368   4            call set$conout$flag(@ccb);
+ 369   4            call print$msg(0ffh,0,@(cr,lf,'Printer Busy',cr,lf,0));      
+ 370   4            ccb.column,ccb.startcol = 0;              /* for function 10 */
+ 371   4            call reset$conout$flag(@ccb);
+ 372   4          end;
+ 373   3        end;
+ 374   2        else                                     /* turn off control P */
+                do;
+ 375   3          disable;
+ 376   3          lcb$ptr.offset = sd.lcb + ccb.mimic * size(lcb);
+ 377   3          lcb.attach = 0;
+ 378   3          lcb.msource,ccb.mimic = 0ffh;
+ 379   3          ccb.state = ccb.state and not double(csm$ctrlP);
+ 380   3          ccb.flag = ccb.flag and not cf$bufp;
+ 381   3          call wakeup(offsetof(@lcb.queue));  /* ## */
+ 382   3          enable;
+ 383   3        end;
+ 384   2        call write$change$mxq(ccb.vcmxq);
+ 385   2        call pxios1(mx$upstatus, 0, ccb.pc);
+ 386   2      end controlP;
+
+ 387   1      raw: procedure boolean;
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE  16
+
+
+ 388   2        if (pd$ptr.offset := ccb.attach) = 0 then  /* 0 during initialization */
+ 389   2           return(true);
+ 390   2        if (pd.flag and pf$raw) = 0 then           /* set by function 6 only  */
+ 391   2          return(false);
+
+              /* 3.1M maintenance fix for call to status line routine         */
+ 392   2        if (controlS$has$been$pressed) then
+              /*                  end of 3.1M patch       */
+ 393   2          call controlQ;          /* avoid deadlock if user is mixing func 6  */
+
+ 394   2        return(true);             /* other console I/O calls                  */
+ 395   2      end raw;
+
+ 396   1      plmstart: procedure public;
+
+ 397   2        sysdat$ptr.segment, lcb$ptr.segment, ccb$ptr.segment = rsp$link;
+ 398   2        temp1$ptr.segment,temp2$ptr.segment = rsp$link;        /* init pointers */
+                  
+ 399   2        ccb$ptr.offset = sd.ccb ;
+                                                         /* CCB 0 is first in the table */
+ 400   2        lomark = 0;  
+ 401   2        do while ccb.pc <> cnsnum;                /* Find first ccb in list that*/
+ 402   3           ccb$ptr.offset = ccb$ptr.offset + size(ccb); /* belongs to this PIN  */
+ 403   3           end;
+ 404   2        lomark = ccb.vc;                          /* First virtual for this PIN */
+                                                          /* All of its virtuals are    */
+                                                          /* linked thru ccb link field.*/
+ 405   2        himark = 1;                               /* Find out how many virtual  */
+ 406   2        do while ccb.link <> 0;                   /* consoles this PIN needs to */
+ 407   3           himark = himark + 1;                   /* manage (himark).           */
+ 408   3           ccb$ptr.offset = ccb.link;
+ 409   3           end;
+ 410   2        ccb$ptr.offset = sd.ccb + (lomark * size(ccb));    /* Reset ccb pointer */
+
+ 411   2        pd$pointer = mon4(m$getpd, 0);
+
+ 412   2        screen = lomark;                         /* initial foreground console  */
+
+ 413   2        cns = ccb.pc;                            /* Hi byte = pc, Lo byte = vc. */       
+ 414   2        cns = shl(cns,8) + ccb.vc;       /* This is the initial device parameter*/
+                                                         /* for the XIOS call to switch */
+
+ 415   2        do forever;
+ 416   3          call conin;
+ 417   3          if char$type = ct$switch then
+ 418   3            call switch;
+ 419   3          else if (char$type and 1) <> 0 then
+ 420   3            call write$vinq(cword);
+ 421   3          else
+                  do;
+ 422   4            if raw then
+ 423   4              call write$vinq(cword);
+ 424   4            else
+                    do;
+ 425   5              if controlS$has$been$pressed then
+ 426   5              do;
+ 427   6                if char = ctrlC then
+PL/M-86 COMPILER    PIN                                                                      11/21/<1 08:38:19  PAGE  17
+
+
+ 428   6                  call controlC;
+ 429   6                else if char = ctrlQ then
+ 430   6                  call controlQ;
+ 431   6                else if char = ctrlP then
+ 432   6                  call controlP;
+ 433   6                else
+                        do;
+ 434   7                  call set$conout$flag(ccb$pointer);  /* guard against unlikely */
+ 435   7                  call pxios1(mx$conout,bell,ccb.vc); /* race condition  */
+ 436   7                  call reset$conout$flag(ccb$pointer);
+ 437   7                end;
+ 438   6              end;
+ 439   5              else
+                      do; /* controlS has not been pressed */
+ 440   6                if char = ctrlC then
+ 441   6                  call controlC;
+ 442   6                else if char = ctrlS then
+ 443   6                  call controlS;
+ 444   6                else if char = ctrlO then
+ 445   6                  call controlO;
+ 446   6                else if char = ctrlP then
+ 447   6                  call controlP;
+ 448   6                else
+                        do;
+ 449   7                  if (ccb.state and csm$ctrlO) <> 0 then
+ 450   7                    call turn$off$ctrlO;
+ 451   7                  call write$vinq(cword);
+ 452   7                end;
+ 453   6              end;
+ 454   5            end;/* else (if not raw) */
+ 455   4          end;  /* if char$type <> ct$data and char$type <> ct$switch then */
+                        /* XIOS console input is ignored                           */
+ 456   3        end;    /* do forever */
+
+ 457   2      end plmstart;
+ 458   1      end pin;
+
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 09A8H   2472D
+     CONSTANT AREA SIZE = 002FH     47D
+     VARIABLE AREA SIZE = 0066H    102D
+     MAXIMUM STACK SIZE = 0022H     34D
+     942 LINES READ
+     0 PROGRAM WARNINGS
+     0 PROGRAM ERRORS
+
+DICTIONARY SUMMARY:
+
+     490KB MEMORY AVAILABLE
+     28KB MEMORY USED   (5%)
+     0KB DISK SPACE USED
+
+END OF PL/M-86 COMPILATION

@@ -1,0 +1,260 @@
+DOS 5.0 (038-N) 8086 LOCATER, V2.5
+
+INPUT FILE: RHPIN.MOD
+OUTPUT FILE: RHPIN.ABS
+CONTROLS SPECIFIED IN INVOCATION COMMAND:
+   TO RHPIN.ABS AD(SM(CODE(0),DATS(0A70H))) SS(
+  STACK(0)) 
+DATE:  11/17/<1  TIME:  19:16:37
+WARNING 26:  DECREASING SIZE OF SEGMENT
+  SEGMENT:  STACK
+
+
+SYMBOL TABLE OF MODULE RPIN
+
+BASE    OFFSET TYPE SYMBOL               BASE    OFFSET TYPE SYMBOL       
+
+00A7H   0004H  PUB  NCOPIES              00A7H   0010H  PUB  PD
+00A7H   0000H  PUB  RSPLINK              00A7H   0020H  PUB  UDASEG
+00A7H   00A0H  PUB  U_INSYS              00A7H   0088H  PUB  U_RETSEG
+00A7H   0086H  PUB  U_WRKSEG             0000H   000FH  PUB  INTSYS
+0000H   0000H  PUB  MON1                 0000H   0000H  PUB  MON2
+0000H   0000H  PUB  MON3                 0000H   0000H  PUB  MON4
+0000H   08FAH  PUB  PLMSTART             0000H   0030H  PUB  PXIOS1
+0000H   0030H  PUB  PXIOS2               0000H   0030H  PUB  PXIOS3
+0000H   0030H  PUB  PXIOS4               0000H   0000H  PUB  XDOS
+
+MODULE = PIN
+
+BASE    OFFSET TYPE SYMBOL               BASE    OFFSET TYPE SYMBOL       
+
+00C4H   0006H  SYM  MEMORY               0000H   0052H  SYM  PIN
+00A7H   0140H  SYM  SYSDATPOINTER        00A7H   0140H  SYM  SYSDATPTR
+00A7H   0140H  SYM  SD                   00A7H   0140H  SYM  SDBYTE
+00A7H   0144H  SYM  PDPOINTER            00A7H   0144H  SYM  PDPTR
+00A7H   0144H  SYM  PD                   00A7H   0148H  SYM  UDAPOINTER
+00A7H   0148H  SYM  UDAPTR               00A7H   0148H  SYM  UDA
+00A7H   0004H  SYM  CNSNUM               00A7H   018EH  SYM  HIMARK
+00A7H   018FH  SYM  LOMARK               00A7H   0190H  SYM  NETFLAG
+00A7H   014CH  SYM  NDAPOINTER           00A7H   014CH  SYM  NDAPTR
+00A7H   014CH  SYM  NDA                  00A7H   0150H  SYM  RCTPTR
+00A7H   0150H  SYM  RCT                  00A7H   0154H  SYM  XINITPOINTER
+00A7H   0154H  SYM  XINITPTR             00A7H   0154H  SYM  XINIT
+00A7H   0158H  SYM  CCBPOINTER           00A7H   0158H  SYM  CCBPTR
+00A7H   0158H  SYM  CCB                  00A7H   015CH  SYM  OLDCCBPOINTER
+00A7H   015CH  SYM  OLDCCB               00A7H   0160H  SYM  LCBPOINTER
+00A7H   0160H  SYM  LCBPTR               00A7H   0160H  SYM  LCB
+00A7H   0191H  SYM  SCREEN               00A7H   0164H  SYM  CNS
+00A7H   0166H  SYM  CNMODE               00A7H   0168H  SYM  QPB
+00A7H   01A6H  SYM  NULL                 00A7H   0178H  SYM  APB
+00A7H   017EH  SYM  CWORD                00A7H   017EH  SYM  CHARS
+00A7H   017EH  SYM  CHAR                 00A7H   017FH  SYM  CHARTYPE
+00A7H   0180H  SYM  TEMP1POINTER         00A7H   0180H  SYM  TEMP1PTR
+00A7H   0180H  SYM  TEMP1                00A7H   0184H  SYM  TEMP2POINTER
+00A7H   0184H  SYM  TEMP2PTR             00A7H   0184H  SYM  TEMP2
+0000H   0052H  SYM  CONIN                0000H   0070H  SYM  GETCONSMODE
+0000H   008EH  SYM  PRINTMSG             STACK   000AH  SYM  LEN
+STACK   0008H  SYM  ENDCHAR              STACK   0004H  SYM  SPTR
+00A7H   0192H  SYM  I                    STACK   0004H  SYM  STRING
+0000H   00CCH  SYM  READCHANGEMXQ        STACK   0004H  SYM  QADDR
+0000H   00E4H  SYM  WRITECHANGEMXQ       STACK   0004H  SYM  QADDR
+0000H   00FCH  SYM  SLEEP                STACK   0004H  SYM  LISTROOT
+0000H   0112H  SYM  WAKEUP               STACK   0004H  SYM  LISTROOT
+0000H   0126H  SYM  SETCONOUTFLAG        STACK   0004H  SYM  CCBPTR
+STACK   0004H  SYM  CCB                  0000H   014AH  SYM  RESETCONOUTFLAG
+STACK   0004H  SYM  CCBPTR               STACK   0004H  SYM  CCB
+0000H   0164H  SYM  WAKEVOUT             STACK   0004H  SYM  CCBPTR
+STACK   0004H  SYM  CCB                  0000H   01B4H  SYM  WRITEVINQ
+STACK   0004H  SYM  C                    0000H   0204H  SYM  SETCCB
+STACK   0004H  SYM  VC                   00A7H   0193H  SYM  CONTROLSHASBEENP
+                                                            -RESSED
+0000H   022CH  SYM  SWITCH               00A7H   0194H  SYM  DRIVELETTERS
+0000H   0432H  SYM  CONTROLC             00A7H   0188H  SYM  JUNK
+00A7H   018AH  SYM  CURDRIVE             00A7H   018CH  SYM  LOGGEDINDRIVES
+00A7H   01A5H  SYM  LETTERINDEX          0000H   05C6H  SYM  CONTROLO
+0000H   061EH  SYM  TURNOFFCTRLO         0000H   0668H  SYM  CONTROLS
+0000H   06E2H  SYM  CONTROLQ             0000H   0736H  SYM  CONTROLP
+0000H   08CAH  SYM  RAW                  0000H   08FAH  SYM  PLMSTART
+0000H   0052H  LIN    102                0000H   0055H  LIN    103
+0000H   006DH  LIN    104                0000H   0070H  LIN    105
+0000H   0073H  LIN    106                0000H   008CH  LIN    107
+0000H   008EH  LIN    108                0000H   0091H  LIN    110
+0000H   0096H  LIN    111                0000H   00ACH  LIN    112
+0000H   00C1H  LIN    113                0000H   00C5H  LIN    114
+0000H   00C7H  LIN    115                0000H   00CCH  LIN    116
+0000H   00CFH  LIN    118                0000H   00D5H  LIN    119
+0000H   00DFH  LIN    120                0000H   00E4H  LIN    121
+0000H   00E7H  LIN    123                0000H   00EDH  LIN    124
+0000H   00F7H  LIN    125                0000H   00FCH  LIN    126
+0000H   00FFH  LIN    128                0000H   010DH  LIN    129
+0000H   0112H  LIN    130                0000H   0115H  LIN    132
+0000H   0122H  LIN    133                0000H   0126H  LIN    134
+0000H   0129H  LIN    137                0000H   012AH  LIN    138
+0000H   0134H  LIN    139                0000H   013BH  LIN    140
+0000H   013DH  LIN    141                0000H   0145H  LIN    142
+0000H   0146H  LIN    143                0000H   014AH  LIN    144
+0000H   014DH  LIN    147                0000H   0155H  LIN    148
+0000H   015FH  LIN    149                0000H   0164H  LIN    150
+0000H   0167H  LIN    153                0000H   0172H  LIN    154
+0000H   0172H  LIN    155                0000H   017CH  LIN    156
+0000H   0182H  LIN    157                0000H   018CH  LIN    158
+0000H   0196H  LIN    159                0000H   019CH  LIN    160
+0000H   01A6H  LIN    161                0000H   01B0H  LIN    162
+0000H   01B4H  LIN    163                0000H   01B7H  LIN    165
+0000H   01C2H  LIN    166                0000H   01C8H  LIN    167
+0000H   01D7H  LIN    169                0000H   01E0H  LIN    170
+0000H   01F6H  LIN    171                0000H   01FFH  LIN    173
+0000H   0204H  LIN    174                0000H   0207H  LIN    176
+0000H   0212H  LIN    177                0000H   0227H  LIN    178
+0000H   022CH  LIN    180                0000H   022FH  LIN    181
+0000H   0238H  LIN    182                0000H   023AH  LIN    183
+0000H   0246H  LIN    184                0000H   0248H  LIN    185
+0000H   024BH  LIN    186                0000H   0256H  LIN    187
+0000H   0258H  LIN    188                0000H   025FH  LIN    189
+0000H   026DH  LIN    190                0000H   026FH  LIN    191
+0000H   0279H  LIN    192                0000H   0284H  LIN    193
+0000H   028DH  LIN    194                0000H   0297H  LIN    195
+0000H   02A2H  LIN    196                0000H   02A8H  LIN    197
+0000H   02B3H  LIN    198                0000H   02BDH  LIN    199
+0000H   02CEH  LIN    200                0000H   02D8H  LIN    201
+0000H   02E4H  LIN    202                0000H   02EAH  LIN    203
+0000H   02F5H  LIN    204                0000H   02FEH  LIN    205
+0000H   030BH  LIN    206                0000H   031AH  LIN    207
+0000H   0325H  LIN    208                0000H   032EH  LIN    209
+0000H   0339H  LIN    210                0000H   0345H  LIN    211
+0000H   034AH  LIN    212                0000H   0356H  LIN    214
+0000H   0357H  LIN    215                0000H   035DH  LIN    216
+0000H   0367H  LIN    217                0000H   036DH  LIN    218
+0000H   037EH  LIN    219                0000H   0381H  LIN    220
+0000H   0383H  LIN    221                0000H   0390H  LIN    223
+0000H   039CH  LIN    224                0000H   03A2H  LIN    225
+0000H   03B0H  LIN    226                0000H   03B9H  LIN    227
+0000H   03C3H  LIN    229                0000H   03C4H  LIN    231
+0000H   03CEH  LIN    232                0000H   03DBH  LIN    234
+0000H   03E5H  LIN    235                0000H   03EEH  LIN    237
+0000H   03F7H  LIN    238                0000H   0402H  LIN    239
+0000H   040EH  LIN    240                0000H   0415H  LIN    241
+0000H   041AH  LIN    242                0000H   042FH  LIN    243
+0000H   0432H  LIN    245                0000H   0435H  LIN    248
+0000H   0441H  LIN    250                0000H   0448H  LIN    251
+0000H   044AH  LIN    253                0000H   0455H  LIN    254
+0000H   0465H  LIN    255                0000H   046AH  LIN    256
+0000H   0477H  LIN    257                0000H   0481H  LIN    258
+0000H   048CH  LIN    259                0000H   0492H  LIN    260
+0000H   04A0H  LIN    261                0000H   04A0H  LIN    262
+0000H   04A9H  LIN    263                0000H   04B4H  LIN    264
+0000H   04BDH  LIN    265                0000H   04C8H  LIN    266
+0000H   04D2H  LIN    267                0000H   04DCH  LIN    268
+0000H   04E8H  LIN    269                0000H   04EEH  LIN    270
+0000H   04F3H  LIN    271                0000H   0500H  LIN    272
+0000H   0509H  LIN    273                0000H   0514H  LIN    275
+0000H   0524H  LIN    276                0000H   0528H  LIN    278
+0000H   052CH  LIN    279                0000H   0532H  LIN    280
+0000H   053CH  LIN    282                0000H   0545H  LIN    283
+0000H   0553H  LIN    284                0000H   0561H  LIN    285
+0000H   0574H  LIN    286                0000H   0582H  LIN    287
+0000H   0595H  LIN    288                0000H   059BH  LIN    289
+0000H   05A9H  LIN    290                0000H   05BBH  LIN    291
+0000H   05C4H  LIN    293                0000H   05C6H  LIN    294
+0000H   05C9H  LIN    295                0000H   05D5H  LIN    297
+0000H   05DCH  LIN    298                0000H   05DEH  LIN    300
+0000H   05E9H  LIN    301                0000H   05F3H  LIN    302
+0000H   05FEH  LIN    303                0000H   0607H  LIN    304
+0000H   061CH  LIN    305                0000H   061EH  LIN    306
+0000H   0621H  LIN    307                0000H   062CH  LIN    308
+0000H   063CH  LIN    309                0000H   0647H  LIN    310
+0000H   0650H  LIN    311                0000H   0665H  LIN    312
+0000H   0668H  LIN    313                0000H   066BH  LIN    314
+0000H   0677H  LIN    315                0000H   0679H  LIN    316
+0000H   0685H  LIN    318                0000H   068CH  LIN    319
+0000H   068EH  LIN    321                0000H   0699H  LIN    322
+0000H   06BBH  LIN    323                0000H   06D0H  LIN    324
+0000H   06DBH  LIN    325                0000H   06E0H  LIN    326
+0000H   06E2H  LIN    327                0000H   06E5H  LIN    328
+0000H   06F0H  LIN    329                0000H   06FAH  LIN    330
+0000H   0705H  LIN    331                0000H   070EH  LIN    332
+0000H   0719H  LIN    333                0000H   072EH  LIN    334
+0000H   0733H  LIN    335                0000H   0736H  LIN    336
+0000H   0739H  LIN    337                0000H   0745H  LIN    339
+0000H   074CH  LIN    340                0000H   074EH  LIN    342
+0000H   0751H  LIN    343                0000H   075CH  LIN    344
+0000H   076BH  LIN    346                0000H   0786H  LIN    347
+0000H   0787H  LIN    348                0000H   078CH  LIN    349
+0000H   0797H  LIN    350                0000H   07A3H  LIN    352
+0000H   07A6H  LIN    353                0000H   07ACH  LIN    354
+0000H   07BCH  LIN    355                0000H   07D4H  LIN    356
+0000H   07D9H  LIN    357                0000H   07D9H  LIN    358
+0000H   07EAH  LIN    360                0000H   07EFH  LIN    361
+0000H   07FAH  LIN    362                0000H   080AH  LIN    363
+0000H   0814H  LIN    364                0000H   0817H  LIN    366
+0000H   0817H  LIN    367                0000H   0818H  LIN    368
+0000H   0821H  LIN    369                0000H   082FH  LIN    370
+0000H   0841H  LIN    371                0000H   084AH  LIN    373
+0000H   084CH  LIN    374                0000H   084CH  LIN    375
+0000H   084DH  LIN    376                0000H   0868H  LIN    377
+0000H   0871H  LIN    378                0000H   0883H  LIN    379
+0000H   0893H  LIN    380                0000H   089CH  LIN    381
+0000H   08A7H  LIN    382                0000H   08A8H  LIN    384
+0000H   08B3H  LIN    385                0000H   08C8H  LIN    386
+0000H   08CAH  LIN    387                0000H   08CDH  LIN    388
+0000H   08DBH  LIN    389                0000H   08DBH  LIN    390
+0000H   08E7H  LIN    391                0000H   08EBH  LIN    392
+0000H   08F2H  LIN    393                0000H   08F5H  LIN    394
+0000H   08F9H  LIN    395                0000H   08FAH  LIN    396
+0000H   08FDH  LIN    397                0000H   0909H  LIN    398
+0000H   0912H  LIN    399                0000H   091DH  LIN    400
+0000H   0922H  LIN    401                0000H   0930H  LIN    402
+0000H   0935H  LIN    403                0000H   0937H  LIN    404
+0000H   0942H  LIN    405                0000H   0947H  LIN    406
+0000H   0952H  LIN    407                0000H   0956H  LIN    408
+0000H   095DH  LIN    409                0000H   095FH  LIN    410
+0000H   0974H  LIN    411                0000H   0985H  LIN    412
+0000H   098BH  LIN    413                0000H   0998H  LIN    414
+0000H   09A7H  LIN    415                0000H   09A7H  LIN    416
+0000H   09AAH  LIN    417                0000H   09B1H  LIN    418
+0000H   09B6H  LIN    419                0000H   09BDH  LIN    420
+0000H   09BDH  LIN    421                0000H   09BDH  LIN    422
+0000H   09C4H  LIN    423                0000H   09CDH  LIN    424
+0000H   09CDH  LIN    425                0000H   09D4H  LIN    427
+0000H   09DBH  LIN    428                0000H   09DBH  LIN    429
+0000H   09E2H  LIN    430                0000H   09E7H  LIN    431
+0000H   09EEH  LIN    432                0000H   09EEH  LIN    433
+0000H   09EEH  LIN    434                0000H   09F7H  LIN    435
+0000H   0A0DH  LIN    436                0000H   0A16H  LIN    438
+0000H   0A18H  LIN    439                0000H   0A18H  LIN    440
+0000H   0A1FH  LIN    441                0000H   0A24H  LIN    442
+0000H   0A2BH  LIN    443                0000H   0A30H  LIN    444
+0000H   0A37H  LIN    445                0000H   0A3CH  LIN    446
+0000H   0A43H  LIN    447                0000H   0A48H  LIN    448
+0000H   0A48H  LIN    449                0000H   0A54H  LIN    450
+0000H   0A57H  LIN    451                0000H   0A5AH  LIN    453
+0000H   0A5AH  LIN    454                0000H   0A5AH  LIN    455
+0000H   0A5AH  LIN    456                0000H   0A5AH  LIN    457
+WARNING 66:  START ADDRESS NOT SPECIFIED IN OUTPUT MODULE
+
+
+MEMORY MAP OF MODULE RPIN
+
+SEGMENT MAP
+
+START     STOP     LENGTH ALIGN NAME            CLASS           OVERLAY
+
+00000H   00A59H     0A5AH   G   CODE            CODE            
+00A60H   00A60H     0000H   G   ??SEG                           
+00A70H   00BAFH     0140H   G   DATS            DATA            
+00BB0H   00C15H     0066H   W   DATA            DATA            
+00C16H   00C44H     002FH   W   CONST           CONST           
+00C46H   00C46H     0000H   W   STACK           STACK           
+00C46H   00C46H     0000H   W   MEMORY          MEMORY          
+
+
+
+GROUP MAP
+
+ADDRESS  GROUP OR SEGMENT NAME
+00A70H   DGROUP
+          DATS
+          DATA
+          CONST
+00000H   CGROUP
+          CODE

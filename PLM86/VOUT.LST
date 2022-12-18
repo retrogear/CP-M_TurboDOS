@@ -1,0 +1,834 @@
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE   1
+
+
+DOS 5.0 (038-N) PL/M-86 V3.1  COMPILATION OF MODULE VOUT
+OBJECT MODULE PLACED IN VOUT.obj
+COMPILER INVOKED BY:  C:\PLM86\PLM86.EXE VOUT.P86 OPTIMIZE(3) 
+
+
+
+              /* edit 11-20-2021 LAG */
+              /* look for ## in comments */
+
+              $title('VOUT.RSP - virtual console disk write')
+              $set(debug=0)
+              $compact
+   1          vout:
+              do;
+
+              /* Disk output process.  Reads Virtual OUTput Queue (VOUTQ) associated
+              with a virtual console in buffered background mode.  Output is spooled
+              to the file VOUTX.$$$.  When console is in foreground purge mode, spooled
+              output is read from this file and dumped on the screen.  There is one
+              copy of the VOUT process per virtual console.  Each VOUT RSP has
+              its own data area, but the code is reentrant for all the VOUT RSPs.
+              */
+
+              /* VAX commands used to generate VOUT.RSP
+
+              asm86 rvout.a86
+              plm86 vout.plm optimize(3) debug 'p1' 'p2' 'p3'
+              link86 rvout.obj, pxios.obj, vout.obj to vout.lnk
+              loc86 vout.lnk od(sm(code,dats,data,const,stack)) -
+                ad(sm(code(0))) ss(stack(0))
+              h86 vout.dat
+              refmt vout.mp2 vout.2
+              ren vout.2 vout.mp2
+
+              the hex is uploaded to a micro to make a binary file using the command:
+
+              gencmd vout data[bxxx]
+
+              xxx is taken from the VOUT.MP2 file generated on the VAX by LOC86.
+              xxx is the next paragraph after the CODE segment.
+              */
+
+
+              $include (copyrt.lit)
+
+          =   /*
+          =     Copyright (C) 1983
+          =     Digital Research
+          =     P.O. Box 579
+          =     Pacific Grove, CA 93950
+          =   */
+              $include (comlit.lit)
+   2   1  =   declare
+          =           lit                literally          'literally',
+          =           dcl                lit                'declare',
+          =           true               lit                '0ffh',
+          =           false              lit                '0',
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE   2
+
+
+          =           no                 lit                'not',
+          =           boolean            lit                'byte',
+          =           forever            lit                'while true',
+          =           cr                 lit                '13',
+          =           lf                 lit                '10',
+          =           tab                lit                '9';
+              $include (qd.lit)
+          =   /* Queue Descriptor */
+
+   3   1  =   dcl qnamsiz lit '8';
+
+   4   1  =   dcl qd$structure lit 'structure(
+          =     link  word,
+          =     net byte,
+          =     org byte,
+          =     flags word,
+          =     name(qnamsiz) byte,
+          =     msglen word,
+          =     nmsgs word,
+          =     dq word,
+          =     nq word,
+          =     msgcnt word,
+          =     msgout word,
+          =     buffer word)';
+
+          =   /* queue flag values */
+
+   5   1  =   dcl qf$mx       lit '001h'; /* Mutual Exclusion */
+   6   1  =   dcl qf$keep     lit '002h'; /* NO DELETE        */
+   7   1  =   dcl qf$hide     lit '004h'; /* Not User writable    */
+   8   1  =   dcl qf$rsp      lit '008h'; /* rsp queue        */
+   9   1  =   dcl qf$table    lit '010h'; /* from qd table    */
+  10   1  =   dcl qf$rpl      lit '020h'; /* rpl queue        */
+  11   1  =   dcl qf$dev      lit '040h'; /* device queue     */
+
+          =   /* Queue Parameter Block */
+
+  12   1  =   dcl qpb$structure lit 'structure(
+          =     flgs    byte,
+          =     net     byte,
+          =     qaddr   word,
+          =     nmsgs   word,
+          =     buffptr word,
+          =     name (qnamsiz) byte )';
+              $include (mfunc.lit)
+          =   /* Concurrent CP/M function numbers */
+
+  13   1  =   dcl           m$prtbuf              lit       '9',
+          =                 m$select              lit       '14',
+          =                 m$openf               lit       '15',
+          =                 m$closef              lit       '16',
+          =                 m$deletef             lit       '19',
+          =                 m$readf               lit       '20',
+          =                 m$writef              lit       '21',
+          =                 m$makef               lit       '22',
+          =                 m$getlogin            lit       '24',
+          =                 m$curdsk              lit       '25',
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE   3
+
+
+          =                 m$setdma              lit       '26',
+          =                 m$setatt              lit       '30',
+          =                 m$setusr              lit       '32',
+          =                 m$readrf              lit       '33',
+          =                 m$writerf             lit       '34',
+          =                 m$resetdrv            lit       '37',
+          =                 m$errmode             lit       '45',
+          =                 m$dirbios             lit       '50',
+          =                 m$makeq               lit       '134',
+          =                 m$openq               lit       '135',
+          =                 m$deleteq             lit       '136',
+          =                 m$readq               lit       '137',
+          =                 m$creadq              lit       '138',
+          =                 m$writeq              lit       '139',
+          =                 m$cwriteq             lit       '140',
+          =                 m$delay               lit       '141',
+          =                 m$dispatch            lit       '142',
+          =                 m$setprior            lit       '145',
+          =                 m$detach              lit       '147',
+          =                 m$setcns              lit       '148',
+          =                 m$parse               lit       '152',
+          =                 m$getcns              lit       '153',
+          =                 m$sysdat              lit       '154',
+          =                 m$getpd               lit       '156',
+          =                 m$abort               lit       '157';
+
+          =   /* Internal calls */
+
+  14   1  =   dcl           mi$sleep              lit       '0212H',
+          =                 mi$wakeup             lit       '0213H';
+              $include (mxfunc.lit)
+          =   /* MP/M-86 XIOS function numbers */
+
+  15   1  =   dcl     mx$conin            lit '1',
+          =           mx$conout           lit '2',
+          =           mx$lstout           lit '4',
+          =           mx$switch           lit '7',
+          =           mx$upstatus         lit '8',
+          =           mx$consmode         lit '30';
+              $include (fcb.lit)
+
+  16   1  =   declare
+          =       f$drvusr          lit '0',        /* drive/user byte               */
+          =       f$name            lit '1',        /* file name                     */
+          =       f$namelen         lit '8',        /* file name length              */
+          =       f$type            lit '9',        /* file type field               */
+          =       f$typelen         lit '3',        /* type length                   */
+          =       f$rw              lit '9',        /* high bit is R/W attribute     */
+          =       f$dirsys          lit '10',       /* high bit is dir/sys attribute */
+          =       f$arc             lit '11',       /* high bit is archive attribute */
+          =       f$ex              lit '12',       /* extent                        */
+          =       f$s1              lit '13',       /* module byte                   */
+          =       f$rc              lit '15',       /* record count                  */
+          =       f$diskmap         lit '16',       /* file disk map                 */
+          =       diskmaplen        lit '16',       /* disk map length               */
+          =       f$drvusr2         lit '16',       /* fcb2                          */
+          =       f$name2           lit '17',
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE   4
+
+
+          =       f$type2           lit '25',
+          =       f$cr              lit '32',       /* current record                */
+          =       f$rrec            lit '33',       /* random record                 */
+          =       f$rreco           lit '35';       /*   "      "    overflow        */
+
+  17   1      dcl name$len lit '4';           /* number of letters in RSP name: 'VOUT' */
+  18   1      dcl fcblen lit '36';
+
+  19   1      dcl rsplink word external;  /* set to SYSDAT by O.S. initialization */
+  20   1      dcl udaseg word external;       /* DS for this process */
+  21   1      dcl ncopies byte external;
+  22   1      dcl copynum byte at (.ncopies); /* VOUT process copy number, also the */
+                                              /* virtual console number for console */
+                                              /* output to the XIOS */
+
+              $include (sd.lit)
+          =   /* System Data Page */
+
+  23   1  =     dcl sysdat$pointer pointer;
+  24   1  =     dcl sysdat$ptr structure(
+          =       offset word,
+          =       segment word) at (@sysdat$pointer);
+  25   1  =     declare sd based sysdat$pointer structure (
+          =         supmod (4) word,
+          =     /*  rtmmod (4) word,
+          =         memmod (4) word,
+          =         ciomod (4) word,
+          =         bdosmod (4) word,
+          =         xiosmod (4) word,
+          =         netmod (4) word,
+          =         reservd (4) word */
+          =         space1(28) word,
+          =         mpmseg word,
+          =         rspseg word,
+          =         endseg word,
+          =         module$map byte,
+          =         ncns byte,
+          =         nlst byte,
+          =         nccb byte,
+          =         nflags byte,
+          =         srchdisk byte,
+          =         mmp word,
+          =         nslaves byte,
+          =         dayfile byte,
+          =         tempdisk byte,
+          =         tickspersec byte, 
+          =         lul word, 
+          =         ccb word,
+          =         flags word,
+          =         mdul word,
+          =         mfl word,
+          =         pul word,
+          =         qul word,
+          =         qmau (4) word,
+          =         rlr word,
+          =         dlr word,
+          =         drl word,
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE   5
+
+
+          =         plr word,
+          =         slr word,
+          =         thrdrt word,
+          =         qlr word,
+          =         mal word,      
+          =         version word,
+          =         vernum word,
+          =         mpmvernum word,
+          =         tod_day word,
+          =         tod (3) byte,
+          =         ncondev byte,
+          =         nlstdev byte,
+          =         nciodev byte,
+          =         lcb word,
+          =         openvec word,
+          =         lockmax byte,
+          =         openmax byte,
+          =         space2 (2) word,
+          =         cmod byte );  
+          =         
+          =         
+  26   1  =   declare sd$byte based sysdat$pointer (1) byte;
+  27   1  =   dcl   ncondev lit '83h',
+          =         nlstdev lit '84h',
+          =         nciodev lit '85h';
+
+  28   1      dcl ccb$pointer pointer;
+  29   1      dcl ccb$ptr structure ( offset address, segment address) at
+                (@ccb$pointer);
+              $include (vccb.lit)
+
+
+          =   /*              +---------+---------+---------+---------+
+          =          00       |      attach       |       queue       |
+          =                   +---------+---------+---------+---------+
+          =          04       |  flag   | startcol| column  |  nchar  |
+          =                   +---------+---------+---------+---------+
+          =          08       |  mimic  | msource |   pc    |    vc   |
+          =                   +---------+---------+---------+---------+
+          =          0C       |  btmp   | resrvd  |       state       |
+          =                   +---------+---------+---------+---------+
+          =          10       |     maxbufsiz     |       vinq        |
+          =                   +---------+---------+---------+---------+
+          =          14       |       voutq       |       vcmxq       |     
+          =                   +---------+---------+---------+---------+
+          =          18       | qpbflgs | qpbfill |      qpbqaddr     |
+          =                   +---------+---------+---------+---------+
+          =          1C       |      qpbnmsgs     |     qpbbuffptr    |
+          =                   +---------+---------+---------+---------+
+          =          20       |       qbuff       |      cosleep      |
+          =                   +---------+---------+---------+---------+
+          =          24       |      usleep       |       vsleep      |
+          =                   +---------+---------+---------+---------+
+          =          28       |            ... reserved ...           |
+          =                   +---------+---------+---------+---------+
+
+
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE   6
+
+
+
+
+          =   */   
+
+  30   1  =   dcl ccb$structure lit 'structure (attach address, queue address,
+          =    flag byte, startcol byte, column byte, nchar byte, mimic byte, msource byte,
+          =    ccb$tail1';
+  31   1  =   dcl ccb$tail1 lit
+          =    'pc byte, vc byte, btmp byte, reservd byte, state word, maxbufsiz word,
+          =     ccb$tail2';
+  32   1  =   dcl ccb$tail2 lit
+          =    'vinq address, voutq address, vcmxq address,
+          =     qpbflags byte, qpbresrvd byte, qpbqaddr address,
+          =     qpbnmsgs address, qpbbuffptr address, qbuff address, cosleep word,
+          =     usleep word, vsleep word, link word, r2 word)';
+
+  33   1  =     declare                                 /* flag values                    */
+          =       cf$listcp         lit        '001h',  /* control P toggle               */
+          =       cf$compc          lit        '002h',  /* suppress output                */
+          =       cf$switchs        lit        '004h',  /* XIOS supports switch screening */
+          =       cf$conout         lit        '008h',  /* XIOS console output ownership  */
+          =       cf$vout           lit        '010h',  /* process writing to VOUTQ       */
+          =       cf$bufp           lit        '020h';  /* toggle to control printer echo */
+          =                                             /* on control P when background   */
+          =                                             /* and buffered                   */
+          =   /* values of state byte */
+          =                                               /* conout goes to XIOS  */
+
+          =   /* state word flags */
+
+  34   1  =   dcl
+          =   csm$buffered          lit       '0001h',
+          =   csm$background        lit       '0002h',
+          =   csm$purging           lit       '0004h',
+          =   csm$noswitch          lit       '0008h',
+          =   csm$suspend           lit       '0010h',
+          =   csm$abort             lit       '0020h',
+          =   csm$filefull          lit       '0040h',
+          =   csm$ctrlS             lit       '0080h',
+          =   csm$ctrlO             lit       '0100h',
+          =   csm$ctrlP             lit       '0200h';
+
+  35   1  =   dcl x$init$offset lit '0Ch',
+          =       x$init$pointer pointer,
+          =       x$init$ptr structure (offset word, segment word) at (@x$init$pointer),
+          =       x$init based x$init$pointer structure
+          =         (tick byte, ticks$sec byte, door byte, resrvd1 (2) byte,
+          =         nvcns byte, nccb byte, nlst byte, ccb word, lcb word);
+
+
+  36   1  =   dcl lcb$structure lit 'structure (attach address, queue address,
+          =    flag byte, startcol byte, column byte, nchar byte,
+          =    mimic byte, msource byte)';
+  37   1      dcl ccb based ccb$pointer ccb$structure;
+
+  38   1      dcl data$msg lit '0';
+  39   1      dcl wake$msg lit '0ffh';
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE   7
+
+
+  40   1      dcl voutq$msg structure (
+                dayta byte, type byte);
+
+  41   1      mon1: procedure (func,a) external;
+  42   2        dcl func byte, a address;
+  43   2      end mon1;
+
+  44   1      mon2: procedure (func,a) byte external;
+  45   2        dcl func byte, a address;
+  46   2      end mon2;
+
+  47   1      mon4: procedure (func,a) pointer external;
+  48   2        dcl func byte, a address;
+  49   2      end mon4;
+
+  50   1      intsys: procedure (cx, dx, bx) external;     /* internal O.S. functions */
+  51   2        dcl (cx, dx, bx) word;                     /* see RVOUT module        */
+  52   2      end intsys;
+
+              /* special disk output assembly module */
+
+  53   1      pxios1: procedure (func,p1,p2) external;
+  54   2        dcl func byte, (p1,p2) address;       /* XIOS interface for process */
+  55   2      end pxios1;                             /* not in the O.S. */
+
+  56   1      dcl ps$ciosleep lit '9';
+
+  57   1      sleep: procedure(addr);
+  58   2        dcl addr word;
+  59   2        call intsys(mi$sleep, addr, ps$ciosleep);
+  60   2      end sleep;
+
+  61   1      wakeup: procedure(addr);
+  62   2        dcl addr word;
+  63   2        call intsys(mi$wakeup, addr, 0);
+  64   2      end wakeup;
+
+
+              $if debug=1
+                              /* conditionally compiled error print routines */
+
+               print$msg: procedure(endchar, sptr);
+                dcl (i, endchar) byte, sptr pointer,
+                    string based sptr (1) byte;
+                i = 0;
+                do while string(i) <> endchar;
+                  call pxios1(mx$conout, string(i), copynum);
+                  i = i + 1;
+                end;
+              end print$msg;
+
+              print$hex: procedure (nib);
+                dcl nib byte;
+                nib = nib and 0fh;
+                if nib < 10 then
+                  call pxios1(mx$conout, nib + '0', copynum);
+                else
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE   8
+
+
+                  call pxios1(mx$conout, nib + 'A' - 10, copynum);
+              end print$hex;
+
+              error: procedure(msgptr);
+                dcl msgptr pointer;
+                call print$msg(0, @(cr, lf, '**** VOUT ERROR ****  ',0));
+                call print$msg(0, msgptr);
+                call print$msg(0, @(', CCB.STATE = ', 0));
+                call print$hex(shr(ccb.state, 12));
+                call print$hex(shr(ccb.state,  8));
+                call print$hex(shr(ccb.state,  4));
+                call print$hex(ccb.state);
+                call print$msg(0, @('H', cr, lf, 0));
+              end error;
+
+              $endif
+
+  65   1      read$change$mxq: procedure;
+  66   2        qpb.qaddr = ccb.vcmxq;
+  67   2        call mon1 (m$readq, .qpb);
+  68   2      end read$change$mxq;
+
+  69   1      write$change$mxq: procedure;
+  70   2        qpb.qaddr = ccb.vcmxq;
+  71   2        call mon1 (m$writeq, .qpb);
+  72   2      end write$change$mxq;
+
+  73   1      dcl logeof lit '0ffh';
+  74   1      dcl dump$op lit '0ffh';
+
+  75   1      dcl writing boolean initial (false);
+  76   1      dcl delete$flag boolean initial (true);      /* delete when convienient     */
+  77   1      dcl deleted boolean initial (true);          /* has been deleted            */
+  78   1      dcl file$is$empty boolean initial (true);
+  79   1      dcl rrr address initial(0);                  /* next random record to read  */
+  80   1      dcl wrr address initial(0);                  /* next random record to write */
+
+  81   1      delete$file: procedure;
+  82   2        call mon1(m$closef, .fcb);                 /* force allocation vector     */
+  83   2        call mon1(m$deletef, .fcb);                /* update */
+  84   2        delete$flag = false;
+  85   2        deleted = true;
+  86   2      end delete$file;
+
+  87   1      make$file: procedure boolean;
+  88   2        call setb(0, @fcb(f$ex), fcblen-f$ex);
+  89   2        fcb(f$drvusr) = sd.tempdisk + 1;    /* try deleting the file in case drive */
+  90   2        call mon1(m$deletef, .fcb);         /* was read only when delet$file was   */
+                                                    /* called or tempdisk has changed      */
+  91   2        if mon2(m$makef, .fcb) = 0ffh then  /* open in locked mode */
+  92   2          return(false);            /* error - force open attempt next time */
+  93   2        deleted = false;
+  94   2        return(true);
+                /* fcb(f$ex) = fcb(f$ex) or 80h;   /* make system         */
+                /* call mon1(m$setatt, .fcb); */
+  95   2      end make$file;
+
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE   9
+
+
+  96   1      reset$file: procedure;
+  97   2        delete$flag, file$is$empty = true;
+  98   2        writing = false;                  /* force setdma */
+  99   2        wrr, rrr = 0;                     /* not necessary ? */
+ 100   2      end reset$file;
+
+ 101   1      dcl bufsiz lit '128';
+
+ 102   1      dcl in$buf(bufsiz) byte;            /* buffer to fill on from reading VOUTQ */
+ 103   1      dcl in$ptr word initial (0ffffh);   /* initially empty buffer */
+
+ 104   1      dcl purge$buf (buf$siz) byte;       /* buffer to use when purging */
+ 105   1      dcl purge$ptr word initial (0ffffh);
+ 106   1      dcl num$purge$buf$chars word initial (0);
+
+ 107   1      write$buf: procedure boolean;
+ 108   2        if deleted then
+ 109   2        do;
+ 110   3          if not make$file then             /* delete and make file */
+ 111   3            return(false);
+ 112   3        end;
+ 113   2        else if rrr = wrr and not file$is$empty then
+ 114   2          return(false);              /* don't write if we haven't purged it yet */
+ 115   2        if not writing then       /* we want to be in write mode */
+ 116   2        do;
+ 117   3          call mon1(m$setdma,.in$buf);
+ 118   3          writing = true;
+ 119   3        end;
+ 120   2        fcb(f$rrec) = low(wrr);
+ 121   2        fcb(f$rrec+1) = high(wrr);
+ 122   2        if mon2(m$writerf, .fcb) <> 0 then
+ 123   2          return(false);             /* out of disk space or physical error */
+ 124   2        file$is$empty = false;
+ 125   2        in$ptr = 0ffffh;
+ 126   2        wrr = (wrr + 1) mod (ccb.maxbufsiz * 8);   /* next record to write */
+ 127   2        return(true);
+ 128   2      end write$buf;
+
+ 129   1      read$buf: procedure boolean;
+ 130   2        dcl ret boolean;
+ 131   2        if file$is$empty then
+ 132   2        do;
+ 133   3          if not deleted then         /* made file but had a write error */
+ 134   3            call reset$file;
+ 135   3          return(false);
+ 136   3        end;
+ 137   2        if writing then               /* we want to be in read mode */
+ 138   2        do;
+ 139   3          call mon1(m$setdma, .purge$buf);
+ 140   3          writing = false;
+ 141   3        end;
+ 142   2        fcb(f$rrec) = low(rrr);
+ 143   2        fcb(f$rrec+1) = high(rrr);
+ 144   2        ret = mon2(m$readrf,.fcb) = 0; /* physical error if false - skips record */
+ 145   2        rrr = (rrr + 1) mod (ccb.maxbufsiz * 8);
+ 146   2        if rrr = wrr then             /* done with file  ? */
+ 147   2          call reset$file;
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE  10
+
+
+ 148   2        return(ret);                  /* return read status */
+ 149   2      end read$buf;
+
+ 150   1      dcl active$msg boolean initial (false);
+ 151   1      read$voutq: procedure;
+ 152   2        if active$msg then
+ 153   2          return;
+ 154   2        qpb.qaddr = ccb.voutq;
+ 155   2        qpb.buffptr = .voutq$msg;
+ 156   2        call mon1(m$readq, .qpb);
+ 157   2        if voutq$msg.type = data$msg then
+ 158   2          active$msg = true;
+ 159   2      end read$voutq;
+
+ 160   1      drain$voutq: procedure(char$adr) boolean;
+ 161   2        dcl char$adr address;               /* return false if no chars found in */
+ 162   2        dcl char based char$adr byte;       /* VOUTQ, return true and put char @ */
+ 163   2        dcl (have$a$char, qempty) boolean;  /* char$adr if there is one          */
+ 164   2        qpb.qaddr = ccb.voutq;
+ 165   2        qpb.buffptr = .voutq$msg;
+ 166   2        have$a$char, qempty = false;
+ 167   2        do while not have$a$char and not qempty;
+ 168   3          if mon2(m$creadq, .qpb) = 0 then      /* successful queue read */
+ 169   3            have$a$char = voutq$msg.type = data$msg;  /* and msg is data */
+ 170   3          else
+                    qempty = true;
+ 171   3        end;
+ 172   2        char = voutq$msg.dayta;
+ 173   2        if qempty then
+ 174   2          return(false);               /* no chars in queue */
+ 175   2        return(true);                  /* char was a data msg */
+ 176   2      end drain$voutq;
+
+ 177   1      put$char: procedure boolean;
+ 178   2        active$msg = false;
+ 179   2        if voutq$msg.type <> data$msg then
+ 180   2          return(true);
+ 181   2        voutq$msg.type = wake$msg;   /* probably garbage */
+ 182   2        in$buf(in$ptr := in$ptr + 1) = voutq$msg.dayta;
+ 183   2        if in$ptr = buf$siz - 1 then
+ 184   2          return(write$buf);                     /* don't call again no write  */
+ 185   2        return(true);
+ 186   2      end put$char;
+
+ 187   1      get$char: procedure (charadr) boolean;
+ 188   2        dcl charadr address, char based charadr byte;
+ 189   2        if purge$ptr + 1 = num$purge$buf$chars then
+ 190   2          if read$buf then
+ 191   2          do;
+ 192   3            num$purge$buf$chars = bufsiz;
+ 193   3            purge$ptr = 0ffffh;
+ 194   3          end;
+ 195   2          else if in$ptr <> 0ffffh then   /* data in buff but not in file */
+ 196   2          do;
+ 197   3            call move(in$ptr + 1, .in$buf, .purge$buf);
+ 198   3            write$pending = false;
+ 199   3            num$purge$buf$chars = in$ptr + 1;
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE  11
+
+
+ 200   3            in$ptr, purge$ptr = 0ffffh;  /* indicate data in purge$buf */
+ 201   3          end;
+ 202   2          else if active$msg then
+ 203   2          do;
+ 204   3            active$msg = false;
+ 205   3            char = voutq$msg.dayta;
+ 206   3            return(true);
+ 207   3          end;
+ 208   2          else
+                  do;
+ 209   3            if not drain$voutq(char$adr) then        /* get chars from VOUTQ       */
+ 210   3            do;
+ 211   4              do while (ccb.flag and cf$vout) <> 0;  /* user process is NQing wait */
+ 212   5                call mon1(m$delay, 2);               /* for q write to finish      */
+ 213   5              end;
+ 214   4              return(drain$voutq(char$adr));         /* now read message, usr proc */
+ 215   4            end;                                     /* sleeps because of state    */
+ 216   3            else
+                      return(true);                          /* got a char from VOUTQ      */
+ 217   3           end;
+ 218   2        purge$ptr = purge$ptr + 1;
+ 219   2        char = purge$buf(purge$ptr);
+ 220   2        return (true);
+ 221   2      end get$char;
+
+ 222   1      full$disk: procedure;                          /* arrive when we can't write*/
+ 223   2        call read$change$mxq;                        /* to the disk               */
+ 224   2        if (ccb.state and csm$purging) = 0 then      /* wait for PIN to switch us */
+                                                             /* to the foreground,        */
+ 225   2          ccb.state = ccb.state or csm$filefull;     /* csm$file$full and csm$pur-*/
+                                                             /* ging are mutually exclusive*/
+ 226   2        call write$change$mxq;
+ 227   2      end full$disk;
+
+ 228   1      dcl write$pending boolean initial (false);
+ 229   1      buffer: procedure;
+ 230   2        if write$pending then
+ 231   2          if write$pending := not write$buf then
+ 232   2          do;
+ 233   3            call full$disk;
+ 234   3            return;
+ 235   3          end;
+ 236   2        do while (ccb.state and not double(csm$ctrlP)) =
+                  csm$buffered + csm$background;
+ 237   3          call read$voutq;                      /* always do something with the */
+ 238   3          if write$pending := not putchar then  /* character ! */
+ 239   3          do;
+ 240   4            call full$disk;
+ 241   4            return;
+ 242   4          end;
+ 243   3        end;
+ 244   2      end buffer;
+
+ 245   1      dcl purgeok$mask lit '(csm$background or csm$abort or csm$ctrlS)';
+
+ 246   1      purge: procedure;
+ 247   2        dcl (char, count) byte;
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE  12
+
+
+ 248   2        dcl controlP boolean;
+ 249   2        dcl more$in$file boolean;
+ 250   2        more$in$file = true;
+ 251   2        do while (ccb.state and purgeok$mask) = 0 and
+                  more$in$file;
+ 252   3          call read$change$mxq;
+ 253   3          controlP = (ccb.state and csm$ctrlP) <> 0;
+ 254   3          if (ccb.state and purgeok$mask) = 0 then
+ 255   3          do;
+ 256   4            disable;
+ 257   4            do while (ccb.flag and cf$conout) <> 0;
+ 258   5              call sleep(offsetof(@ccb.cosleep)); /* ## */
+ 259   5            end;
+ 260   4            ccb.flag = ccb.flag or cf$conout;
+ 261   4            enable;
+ 262   4            count = 0;
+ 263   4            do while more$in$file and count < 40;    /* for performance, purge 40 */
+ 264   5              if (more$in$file := get$char(.char)) and  /* chars before allowing  */
+                        (ccb.state and csm$ctrlO) = 0 then     /* state to change, 40 is */
+ 265   5                do;                                    /* is somewhat arbitrary  */
+ 266   6                  call pxios1(mx$conout, char, copynum);
+ 267   6                  if controlP then
+ 268   6                    call pxios1(mx$lstout, char, ccb.mimic);
+ 269   6                end;  
+ 270   5            count = count + 1;
+ 271   5            end;
+ 272   4            ccb.flag = ccb.flag and not cf$conout;
+ 273   4            call write$change$mxq;          /* possibly wake up PIN */
+ 274   4            call wakeup(offsetof(@ccb.cosleep));      /* ## or user process      */
+ 275   4          end;
+ 276   3          else
+                    call write$change$mxq;
+ 277   3        end;
+ 278   2        if not more$in$file then
+ 279   2        do;
+ 280   3          num$purge$buf$chars = 0;
+ 281   3          purge$ptr, inptr = 0ffffh;
+ 282   3          call read$change$mxq;
+ 283   3          if (ccb.state and csm$purging) <> 0 then
+ 284   3          do;
+ 285   4            ccb.state = ccb.state and not double(csm$purging ); /*  the XIOS call  */
+ 286   4            call pxios1(mx$upstatus, 0, ccb.pc);
+ 287   4          end;
+ 288   3          call write$change$mxq;
+ 289   3        end;
+ 290   2        call wakeup(offsetof(@ccb.usleep));  /* ## wake up user process */
+ 291   2      end purge;
+
+ 292   1      abort: procedure;
+ 293   2        dcl junk word;
+ 294   2        do while drain$voutq(.junk);       /* drain input queue        */
+ 295   3        end;                               /* may wake up user process */
+ 296   2        call read$change$mxq;              
+ 297   2        ccb.state = ccb.state and not double(csm$abort);
+ 298   2        call write$change$mxq;
+ 299   2        call reset$file;
+ 300   2        write$pending = false;
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE  13
+
+
+ 301   2        purge$ptr, inptr = 0ffffh;
+ 302   2        num$purge$buf$chars = 0;
+ 303   2        call wakeup(offsetof(@ccb.usleep));  /* ## wake up user process */
+ 304   2      end abort;
+
+ 305   1      initq: procedure(qdaddr) address;
+ 306   2        dcl qdaddr address;
+ 307   2        dcl ret boolean;
+ 308   2        dcl iqd based qdaddr qd$structure;
+ 309   2        call move(qnamsiz, .iqd.name, .qpb.name);
+ 310   2        ret = mon2(m$makeq, qdaddr);                  /* 0ffh return = error */
+ 311   2        ret = ret or mon2(m$openq, .qpb);             /* ret = 0 if no error */
+
+              $if debug = 1
+                if ret then        /* if debugging print error */
+                  call error(@('Queue initialization error',0));
+              $endif
+
+ 312   2        return(qpb.qaddr);
+ 313   2      end initq;
+
+ 314   1      dcl pd$pointer pointer;     /* in RSP assembly interface */
+ 315   1      dcl pd based pd$pointer (1) byte;
+ 316   1      dcl pd$name lit '8';
+
+ 317   1      dcl voutq$buf (32) byte;
+ 318   1      dcl voutq qd$structure initial
+                (0,0,0, qf$hide + qf$keep,        'VOUTQ   ',2,16,0,0,0,0,.voutq$buf);
+
+ 319   1      dcl vinq$buf (64) word;          /* 64 bytes type ahead */
+ 320   1      dcl vinq qd$structure initial
+                (0,0,0, qf$keep + qf$hide,        'VINQ    ',2,64,0,0,0,0,.vinq$buf);
+
+ 321   1      dcl vcmxq qd$structure initial
+                (0,0,0,qf$keep + qf$mx + qf$hide, 'VCMXQ   ',0,1,0,0,0,0,0);
+
+ 322   1      dcl qpb qpb$structure;
+
+ 323   1      dcl dummy (1) byte data ('Z');  /* make constant segment non-zero to */
+                                              /* hex generation */
+
+ 324   1      dcl fcb(36) byte initial (0,'        ', '$$$');
+
+              /* initialization */
+
+ 325   1      plmstart: procedure public;
+ 326   2        dcl save$state word;
+ 327   2        call mon1(m$errmode, 0ffh);           /* don't display errors */
+ 328   2        ccb$ptr.segment, sysdat$ptr.segment = rsplink;
+ 329   2        sysdat$ptr.offset = 0;
+ 330   2        ccb$ptr.offset = sd.ccb + copynum * size(ccb);
+
+ 331   2        pd$pointer = mon4(m$getpd,0);
+
+ 332   2        call movb(@pd(pd$name), @fcb(f$name), qnamsiz);
+
+ 333   2        call move(4, .fcb(f$name + name$len), .vinq.name(4));
+PL/M-86 COMPILER    VOUT.RSP - virtual console disk write                                    11/21/<1 08:38:19  PAGE  14
+
+
+ 334   2        ccb.vinq = initq(.vinq);
+ 335   2        call move(3, .fcb(f$name + name$len), .voutq.name(5));
+ 336   2        ccb.voutq = initq(.voutq);
+ 337   2        call move(3, .fcb(f$name + name$len), .vcmxq.name(5));
+ 338   2        ccb.vcmxq = initq(.vcmxq);
+
+ 339   2        call mon1(m$setcns, copynum);         /* copynum is virtual console # */
+
+ 340   2        fcb(f$drvusr) = sd.tempdisk + 1;
+ 341   2        call write$change$mxq;                /* write initial MX message */
+ 342   2        call mon1(m$setprior, 200);  
+
+ 343   2        do forever;
+ 344   3          if delete$flag then
+ 345   3            call delete$file;
+ 346   3          if (ccb.state and not double(csm$ctrlP + csm$ctrlO)) =
+                    csm$buffered + csm$background then        /* if ctrlO,background and */
+ 347   3            call buffer;                              /* buffered, then sleep    */
+ 348   3          else if ( (ccb.state and not double(csm$ctrlO + csm$ctrlP))
+                    and csm$purging) <> 0 then
+ 349   3            call purge;
+ 350   3          else if (ccb.state and csm$abort) <> 0 then
+ 351   3            call abort;
+ 352   3          if delete$flag then
+ 353   3            call delete$file;
+ 354   3          else
+                    call read$voutq;
+ 355   3        end;
+
+ 356   2      end plmstart;
+ 357   1      end vout;
+
+
+
+MODULE INFORMATION:
+
+     CODE AREA SIZE     = 06ADH   1709D
+     CONSTANT AREA SIZE = 0001H      1D
+     VARIABLE AREA SIZE = 0256H    598D
+     MAXIMUM STACK SIZE = 001AH     26D
+     766 LINES READ
+     0 PROGRAM WARNINGS
+     0 PROGRAM ERRORS
+
+DICTIONARY SUMMARY:
+
+     490KB MEMORY AVAILABLE
+     20KB MEMORY USED   (4%)
+     0KB DISK SPACE USED
+
+END OF PL/M-86 COMPILATION

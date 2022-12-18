@@ -1,0 +1,29 @@
+
+DOS 5.0 (046-N) 8086 LINKER, V3.1
+
+INPUT FILES: RHVOUT.OBJ, PXIOS.OBJ, VOUT.OBJ
+OUTPUT FILE: RHVOUT.LNK
+CONTROLS SPECIFIED IN INVOCATION COMMAND:
+DATE:  11/20/<1  TIME:  09:08:49
+
+WARNING 14:  GROUP ENLARGED
+  FILE:  VOUT.OBJ
+  GROUP:  DGROUP
+  MODULE:  VOUT
+
+LINK MAP OF MODULE RVOUT
+
+LOGICAL SEGMENTS INCLUDED:
+LENGTH ADDRESS ALIGN  SEGMENT         CLASS           OVERLAY
+ 0000H ------    G    ??SEG                                         
+ 072FH ------    G    CODE            CODE                          
+ 0140H ------    G    DATS            DATA                          
+ 0256H ------    W    DATA            DATA                          
+ 0001H ------    W    CONST           CONST                         
+ 001AH ------    W    STACK           STACK                         
+ 0000H ------    W    MEMORY          MEMORY                        
+
+INPUT MODULES INCLUDED:
+RHVOUT.OBJ(RVOUT)
+PXIOS.OBJ(PXIOS)
+VOUT.OBJ(VOUT)

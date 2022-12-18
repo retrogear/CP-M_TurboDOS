@@ -1,0 +1,29 @@
+
+DOS 5.0 (046-N) 8086 LINKER, V3.1
+
+INPUT FILES: RHPIN.OBJ, PXIOS.OBJ, PIN.OBJ
+OUTPUT FILE: RHPIN.LNK
+CONTROLS SPECIFIED IN INVOCATION COMMAND:
+DATE:  11/20/<1  TIME:  06:23:25
+
+WARNING 14:  GROUP ENLARGED
+  FILE:  PIN.OBJ
+  GROUP:  DGROUP
+  MODULE:  PIN
+
+LINK MAP OF MODULE RPIN
+
+LOGICAL SEGMENTS INCLUDED:
+LENGTH ADDRESS ALIGN  SEGMENT         CLASS           OVERLAY
+ 0000H ------    G    ??SEG                                         
+ 0B72H ------    G    CODE            CODE                          
+ 0140H ------    G    DATS            DATA                          
+ 0066H ------    W    DATA            DATA                          
+ 002FH ------    W    CONST           CONST                         
+ 0022H ------    W    STACK           STACK                         
+ 0000H ------    W    MEMORY          MEMORY                        
+
+INPUT MODULES INCLUDED:
+RHPIN.OBJ(RPIN)
+PXIOS.OBJ(PXIOS)
+PIN.OBJ(PIN)
