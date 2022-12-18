@@ -1,0 +1,61 @@
+genccpm requires CON modules BDOS XIOS SYSDAT SUP CIO MEM and RTM
+BDOS had to be made with pcmode false. See BDOS.A86
+XIOS is gencmd 8080 but others are not.
+RSP's are PIN VOUT CLOCK ECHO SERIN SEROUT SHELL
+RSP's are renamed CMD files. PIN and VOUT require compiler Intel PLM86.EXE on MSDOS since originally compiled on VAX
+(PIN and VOUT rsp's were not provided so had to be compiled from PLM source)
+PLM86 folder contains everything to make PIN.H86 and VOUT.H86 just run MAKERSPS.BAT under DOS shell
+SHELL.RSP = TMP.CMD. ECHO.RSP is needed or no commands respond.
+SERIN/SEROUT RSP's enable ctrl-alt-del to reboot.
+SYSTEM.DEF has mpm=true BMPM=true. If those are set false, genccpm says sys data wrong version
+DATA.BDO needs line #50 added u_nameitem dw 0. Also has CCPM vs MPM = CCPM.
+AT patch in XINIT.LIB of PCXIOS to boot on 486. After int_save_loop change two STOSW to INC DI
+If hard drive is IDE not MFM then boot hangs unless no hard drive patch made.
+No hard drive patch also in XINIT.LIB in equip_check just before equip_chl:
+
+	mov	ah,08			; XT param check
+	mov	dl,80h			; first hard disk code
+	jmp	no_hdisk		; ## force no hard disk
+;	int	disk_int		; ## causes error or hangs
+	jnc	equip_ch1		; skip if dl good
+no_hdisk:				; ##
+	mov	dl,0			; else no hard disks
+equip_ch1:
+	mov	dh,0
+	mov	num_hard,dx
+
+Successful build of PIN.RSP 11/20/21
+
+PIN.P86 edited 7 times to substitute call function(.variable to call function(offsetof(@variable
+;using msdos 5.0, asm86 v2.1, plm86 v3.1, link86 v3.1, loc86 v2.5, oh86 v1.0
+asm86 rhpin.a86
+asm86 pxios.a86
+plm86 pin.p86 optimize(3)
+link86 rhpin.obj,pxios.obj,pin.obj to pin.lnk	;get warning 14: group:dgroup enlarged for PIN.OBJ
+loc86 pin.lnk od(sm(code,dats,data,const,stack)) ad(sm(code(0),dats(10000h))) ss(stack(0)) to pin.dat
+;get warning 26: stack segment decrease and warning 66:start address not specified in output module
+oh86 pin.dat	;creates pin.hex
+rename pin.hex pin.h86	;filetype h86 required for gencmd
+;read pin.h86 into a cpm86 system
+GENCMD PIN DATA[B1000]		;B1000 = dats(10000h) data segment
+REN PIN.RSP=PIN.CMD
+
+Successful build of VOUT.RSP 11/20/21
+
+VOUT.P86 edited 4 times to substitute call function(.variable to call function(offsetof(@variable
+;from msdos
+asm86 rhvout.a86
+asm86 pxios.a86
+plm86 vout.p86 optimize(3)
+link86 rhvout.obj,pxios.obj,vout.obj to vout.lnk	;get warning 14: group:dgroup enlarged for VOUT.OBJ
+loc86 vout.lnk od(sm(code,dats,data,const,stack)) ad(sm(code(0),dats(10000h))) ss(stack(0)) to vout.dat
+;get warning 26: stack segment decrease and warning 66:start address not specified in output module
+oh86 vout.dat
+rename vout.hex vout.h86
+;read vout.h86 into a cpm86 system
+gencmd vout data[B1000]
+ren vout.rsp=vout.cmd
+
+BOOTTRK2 = 320k DSDD 5.25"
+BOOTTRK4 = 1.44M 3.5"
+BOOTTRK7 = 720K 3.5"
